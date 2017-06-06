@@ -1,0 +1,8 @@
+[package]
+
+name = "awari"
+version = "0.0.1"
+authors = [ "peio <peio.borthelle@ens-lyon.fr>" ]
+
+[dependencies]
+quickcheck = "0.4.1"
