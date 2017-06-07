@@ -38,28 +38,23 @@ impl Board4 {
 
         let mut s = 0;
         let (mut c1, d) = utils::binom_maxinv(7, g);
-        //println!("k: {}, g: {}, c: {}", 7, g, c1);
-        //println!("c6: {}", c1);
         g -= d;
         for k in (0..6).rev() {
             let (c0, d) = utils::binom_maxinv(k as u64 + 1, g);
-            //println!("k: {}, g: {}, c: {}", k, g, c0);
             g -= d;
             let a = c1 - c0 - 1;
-            //println!("a: {}", a);
             s += a;
             b[k+1] = a as u8;
             c1 = c0;
         }
         b[0] = c1 as u8;
-        b[7] = (n - s) as u8;
-        println!("{:?}", *b);
+        b[7] = (n - s - c1) as u8;
         return Board4(*b);
     }
 }
 
 
-//TODO: more uniform...
+//TODO: more uniform generator...
 #[cfg(test)]
 impl Arbitrary for Board4 {
     fn arbitrary<G: Gen>(g: &mut G) -> Board4 {
@@ -75,12 +70,7 @@ impl Arbitrary for Board4 {
 }
 
 
-#[cfg(test)]
-quickcheck! {
-    fn coding_bijective(b: Board4) -> bool {
-        println!("{:?}", b);
-        //println!("encoding: {}", b.encode());
-        //println!("{:?}", Board4::decode(b.encode()));
-        b == Board4::decode(b.encode())
-    }
+#[quickcheck]
+fn coding_bijective(b: Board4) -> bool {
+    b == Board4::decode(b.encode())
 }
