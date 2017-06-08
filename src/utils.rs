@@ -1,13 +1,16 @@
-pub fn binom(k: u64, n: u64) -> u64 {
+pub fn binom(k: usize, n: usize) -> usize {
     if n < k {
         return 0;
     }
-    let a : u64 = (n-k+1..n+1).product();
-    let b : u64 = (2..k+1).product();
-    return a / b;
+    let mut p = 1;
+    for i in 0..k {
+        p *= n - i;
+        p /= i + 1;
+    }
+    return p
 }
 
-pub fn binom_maxinv(k : u64, x: u64) -> (u64, u64) {
+pub fn binom_maxinv(k : usize , x: usize ) -> (usize , usize ) {
     let mut b = 1;
     let mut n = k;
 
