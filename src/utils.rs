@@ -10,6 +10,7 @@ pub fn binom(k: usize, n: usize) -> usize {
     return p;
 }
 
+
 pub fn binom_maxinv(k : usize , x: usize ) -> (usize , usize ) {
     assert!((k, x) != (0, 0));  // result should have been (-1, 0)
     if x == 0 { return (k - 1, 0); }

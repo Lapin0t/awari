@@ -1,18 +1,28 @@
+use std::cmp::max;
+use std::boxed::{Box,HEAP};
+
 use awari::Board4;
-use std::collections::HashMap;
-use std::vec::Vec;
 
-type State = (i8, u8);
-type Row = HashMap<Board4, State>;
 
-pub fn analysis() -> Vec<Row> {
-    let mut table = [(); 65739375];
-    for n in 0..25 {
-        let mut row = Row::new();
+pub type Table = Box<[(i8, u8); 10518300]>
 
+
+fn propagate(table: &mut Table, brd: &Board4) {
+    let st = table[brd.encode()];
+    if st.1 == 0 || st.0 == n - l {
+
+    }
+}
+
+
+pub fn analysis() -> Table {
+    let mut table = HEAP <- [(-24, 4); 10518300];
+    table[0] = (0, 0);
+    for n in 1..25 {
+        println!("seed num: {}", n);
         // initialization
         for mut brd in Board4::iter_config(n) {
-            let mut st = (-24, 4);
+            let mut st = table[brd.encode()];
             for i in 0..4 {
                 if !brd.is_valid(i) {
                     st.1 -= 1;
@@ -20,24 +30,22 @@ pub fn analysis() -> Vec<Row> {
                     let k = brd.play(i) as usize;
                     if k > 0 {
                         st.1 -= 1;
-                        st.0 = k as i8 - table[n - k].get(&brd).unwrap().0;
+                        let score = k as i8 - table[brd.encode()].0;
+                        st.0 = max(st.0, score);
                     }
                 }
             }
-            row.insert(brd, st);
         }
 
         // convergence
         for l in 0..n+1 {
             for brd in Board4::iter_config(n) {
-                let &mut st = row.get_mut(&brd);
+                let st = table[brd.encode()];
                 if st.1 == 0 || st.0 == n - l {
-                    propagate(&mut row, brd);
+                    propagate(&mut table, brd);
                 }
             }
         }
-
-        table[n] = row;
     }
     return table;
 }
