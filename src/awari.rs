@@ -1,4 +1,4 @@
-use std::ops::{Index,IndexMut};
+use std::ops::Index;
 use std::fmt::{Debug,Formatter,Result};
 use std::cmp::min;
 use std::hash::{Hash,Hasher};
