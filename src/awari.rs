@@ -4,9 +4,6 @@ use std::cmp::min;
 use std::hash::{Hash,Hasher};
 use std::iter::Iterator;
 
-#[cfg(test)]
-use quickcheck::{Arbitrary,Gen};
-
 use utils::{binom,binom_maxinv};
 
 
@@ -41,6 +38,10 @@ impl Hash for Board4 {
 
 
 impl Board4 {
+    pub fn wrap(b: [u8; 8]) -> Self {
+        Board4(b)
+    }
+
     pub fn unwrap(self) -> [u8; 8] {
         let Board4(b) = self;
         return b;
@@ -64,13 +65,14 @@ impl Board4 {
         let mut brd = [0; 8];
         for i in (0..8).rev() {
             let (x, b) = binom_maxinv(i + 1, n);
-            n -= b;
             brd[i] = x as u8;
+            n -= b;
         }
         let mut c = brd[0];
         for i in 1..8 {
-            brd[i] = c;
-            c += brd[i] + 1;
+            let d = brd[i];
+            brd[i] = d - c - 1;
+            c = d;
         }
         return Board4(brd);
     }
@@ -158,28 +160,4 @@ impl Board4 {
         self.rotate();
         return k;
     }
-}
-
-
-#[cfg(test)]
-impl Arbitrary for Board4 {
-    fn arbitrary<G: Gen>(g: &mut G) -> Board4 {
-        let mut b = [0; 8];
-        for i in 1..8 {
-            b[i] = g.gen_range(0u8, 24);
-        }
-        b.sort();
-        for i in 0..7 {
-            b[i] = b[i+1] - b[i];
-        }
-        b[7] = 24 - b[7];
-        return Board4(b);
-    }
-}
-
-
-#[quickcheck]
-fn coding_bijective(b: Board4) -> bool {
-    println!("{:?}\n{}\n{:?}", b, b.encode(), Board4::decode(b.encode()));
-    b == Board4::decode(b.encode())
 }
