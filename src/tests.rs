@@ -15,7 +15,7 @@ impl Arbitrary for Board4 {
             b[i] = b[i+1] - b[i];
         }
         b[7] = 24 - b[7];
-        return Board4::wrap(b);
+        return Board4(b);
     }
 }
 
@@ -45,4 +45,20 @@ fn binom_maxinv_rel2(k: usize, x: usize) -> bool {
     if (k, x) == (0, 0) { return true; }  // discard test
     let (_, b) = binom_maxinv(k, x);
     return b <= x;
+}
+
+#[quickcheck]
+fn sow_unsow_bij(b: Board4) -> bool {
+    let id = b.encode();
+    for i in 0..4 {
+        if b.valid_sow(i) {
+            let mut x = b;
+            let (j, n) = x.sow(i);
+            x.unsow(j, n);
+            if x.encode() != id {
+                return false;
+            }
+        }
+    }
+    return true;
 }
