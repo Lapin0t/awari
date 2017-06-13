@@ -1,14 +1,15 @@
-use std::ops::Index;
-use std::fmt::{Debug,Formatter,Result};
-use std::cmp::min;
+use std::ops::{Index,IndexMut};
+use std::fmt;
+use std::fmt::{Debug,Formatter};
 use std::hash::{Hash,Hasher};
 use std::iter::Iterator;
+use std::vec::Vec;
 
 use utils::{binom,binom_maxinv};
 
 
 #[derive(Copy, Clone, PartialEq, Eq)]
-pub struct Board4([u8; 8]);
+pub struct Board4(pub [u8; 8]);
 
 
 impl Index<usize> for Board4 {
@@ -20,8 +21,15 @@ impl Index<usize> for Board4 {
 }
 
 
+impl IndexMut<usize> for Board4 {
+    fn index_mut(&mut self, i: usize) -> &mut u8 {
+        return self.0.index_mut(i);
+    }
+}
+
+
 impl Debug for Board4 {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "\n-----------\n")?;
         write!(f, "{:2}{:3}{:3}{:3}\n", self[7], self[6], self[5], self[4])?;
         write!(f, "{:2}{:3}{:3}{:3}\n", self[0], self[1], self[2], self[3])?;
@@ -38,22 +46,13 @@ impl Hash for Board4 {
 
 
 impl Board4 {
-    pub fn wrap(b: [u8; 8]) -> Self {
-        Board4(b)
-    }
-
-    pub fn unwrap(self) -> [u8; 8] {
-        let Board4(b) = self;
-        return b;
-    }
-
     pub fn iter_config(n: usize) -> impl Iterator<Item=Self> {
-        (binom(8, 7 + n)..binom(8, 8+n)).map(Board4::decode)
+        (binom(8, 7+n)..binom(8, 8+n)).map(Board4::decode)
     }
 
     pub fn encode(&self) -> usize {
         let (mut n, mut c) = (0, 0);
-        for (i, &x) in self.unwrap().into_iter().enumerate() {
+        for (i, &x) in self.0.into_iter().enumerate() {
             c += x as usize;
             n += binom(i + 1, c + i);
         }
@@ -78,13 +77,12 @@ impl Board4 {
     }
 
     pub fn rotate(&mut self) {
-        let mut b = self.unwrap();
         for i in 0..4 {
-            b.swap(i, i+4);
+            self.0.swap(i, i+4);
         }
     }
 
-    pub fn is_valid(&self, i: usize) -> bool {
+    pub fn valid_sow(&self, i: usize) -> bool {
         let n = self[i];
         if i >= 4 || n == 0 { return false; }
         else {
@@ -103,61 +101,102 @@ impl Board4 {
         }
     }
 
-    fn sow(&mut self, i: usize) -> usize {
+    pub fn valid_unsow(&self, i: usize, n: u8) -> bool {
+        match (1..8).rev().find(|&r| { let a = (i+r) % 8; a < 4 && self[a] == 0 }) {
+            None => false,
+            Some(r) => {
+                (1..r).all(|k| self[(i+k) % 8] >= n) &&
+                (r+1..9).all(|k| self[(i+k) % 8] >= n + 1)
+            }
+        }
+    }
+
+    pub fn sow(&mut self, i: usize) -> (usize, u8) {
         assert!(i < 4, "pit index out of bounds");
         assert!(self[i] > 0, "no seeds in pit");
         let n = self[i];
-        let mut b = self.unwrap();
-        b[i] = 0;
+        self[i] = 0;
         let (q, r) = (n / 7, (n % 7) as usize);
+        info!("q = {}, r = {}", q, r);
         for j in 1..r+1 {
-            b[(i+j) % 8] += q+1;
+            self[(i+j) % 8] += q+1;
         }
         for j in r+1..8 {
-            b[(i+j) % 8] += q;
+            self[(i+j) % 8] += q;
         }
-        return (i+r+1) % 8;
+        if r == 0 {
+            return ((i+7) % 8, q as u8 - 1);
+        } else {
+            return ((i+r) % 8, q as u8);
+        }
     }
 
-    fn unsow(&mut self, i: usize, n: u8) -> usize {
-        // compute the rightmost min cell on my side, left of i
-        let mut j = min(3, i);
-        while j > 0 && self[j] != 0 {
-            j -= 1;
+    pub fn unsow(&mut self, i: usize, n: u8) -> usize {
+        info!("unsow: j: {}, n: {}", i, n);
+
+        let r = (1..8).rev().find(|&r| { let a = (i+r) % 8; a < 4 && self[a] == 0 }).unwrap();
+        info!("r: {} (i = {})", r, (i + r) % 8);
+
+        for k in 1..r {
+            info!("{} -= {}", (i+k) % 8, n);
+            assert!(self[(i+k) % 8] >= n);
+            self[(i+k) % 8] -= n;
         }
-        assert!(self[j] == 0, "invalid unsowing");
-        let mut b = self.unwrap();
-        for k in 0..j {
-            assert!(b[k] >= n, "invalid unsowing");
-            b[k] -= n;
+        for k in r+1..9 {
+            info!("{} -= {}", (i+k) % 8, n+1);
+            assert!(self[(i+k) % 8] >= n+1);
+            self[(i+k) % 8] -= n + 1;
         }
-        for k in j..i+1 {
-            assert!(b[k] >= n+1, "invalid unsowing");
-            b[k] -= n + 1;
-        }
-        for k in i+1..8 {
-            assert!(b[k] >= n, "invalid unsowing");
-            b[k] -= n;
-        }
+        let j = (i + r) % 8;
+        info!("{} += {}", j, (8 - r) as u8 + 7*n);
+        self[j] += (8 - r) as u8 + 7*n;
         return j;
     }
 
     fn collect(&mut self, i: usize) -> u8 {
         let mut j = i;
         let mut n = 0;
-        let mut b = self.unwrap();
-        while j >= 4 && (b[j] == 2 || b[j] == 3) {
-            n += b[j];
-            b[j] = 0;
+        while j >= 4 && (self[j] == 2 || self[j] == 3) {
+            n += self[j];
+            self[j] = 0;
             j -= 1;
         }
         return n;
     }
 
     pub fn play(&mut self, i: usize) -> u8 {
-        let j = self.sow(i);
+        let (j, _) = self.sow(i);
         let k = self.collect(j);
         self.rotate();
         return k;
+    }
+
+    pub fn predecessors(&self) -> Vec<Self> {
+        let mut cpy = *self;
+        cpy.rotate();
+        
+        let mut v = Vec::new();
+        for i in 0..8 {
+            for n in 0..4 {
+                if cpy.valid_unsow(i, n) {
+                    let mut s = cpy;
+                    s.unsow(i, n);
+                    v.push(s);
+                }
+            }
+        }
+        return v;
+    }
+
+    pub fn successors(&self) -> Vec<(Self, u8)> {
+        let mut v = Vec::new();
+        for i in 0..4 {
+            if self.valid_sow(i) {
+                let mut s = *self;  // copy
+                let k = s.play(i);
+                v.push((s, k));
+            }
+        }
+        return v;
     }
 }
