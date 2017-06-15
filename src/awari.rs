@@ -5,7 +5,7 @@ use std::hash::{Hash,Hasher};
 use std::iter::Iterator;
 use std::vec::Vec;
 
-use utils::{binom,binom_maxinv};
+use utils::{binom,binom_maxinv,divmod};
 
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -30,10 +30,13 @@ impl IndexMut<usize> for Board4 {
 
 impl Debug for Board4 {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "\n-----------\n")?;
-        write!(f, "{:2}{:3}{:3}{:3}\n", self[7], self[6], self[5], self[4])?;
-        write!(f, "{:2}{:3}{:3}{:3}\n", self[0], self[1], self[2], self[3])?;
-        write!(f, "-----------\n")
+        write!(f, "\n+--+--+--+--+")?;
+        write!(f, "\n|{:2}|{:2}|{:2}|{:2}|",
+              self[7], self[6], self[5], self[4])?;
+        write!(f, "\n+--+--+--+--+")?;
+        write!(f, "\n|{:2}|{:2}|{:2}|{:2}|",
+              self[0], self[1], self[2], self[3])?;
+        write!(f, "\n+--+--+--+--+")
     }
 }
 
@@ -83,18 +86,21 @@ impl Board4 {
     }
 
     pub fn valid_sow(&self, i: usize) -> bool {
+        info!("valid_sow, i={}", i);
         let n = self[i];
         if i >= 4 || n == 0 { return false; }
         else {
-            let (q, r) = (n / 7, (n % 7) as usize);
-            let j = (i + r + 1) % 8;
+            let (q, r) = divmod(n, 7);
+            let j = (i + r) % 8;
+            info!("q={}, r={}, j={}", q, r, j);
+            if j < i { return true; }  // at least one everywhere, no capture
             let mut take = true;
             for k in (4..8).rev() {
                 if k > j {
-                    if self[k] > q { return true; }
+                    if self[k] + q > 0 { return true; }
                 } else {
-                    take = take && (self[k] == 2 || self[k] == 3);
-                    if !take && self[k] > q+1 { return true; }
+                    take = take && (self[k] + q == 1 || self[k] + q == 2);
+                    if !take { return true; }
                 }
             }
             return false;
@@ -102,6 +108,8 @@ impl Board4 {
     }
 
     pub fn valid_unsow(&self, i: usize, n: u8) -> bool {
+        if i >= 4 && (self[i] == 2 || self[i] == 3) { return false; }
+        if (4..8).all(|k| self[k] == 0) { return false; }
         match (1..8).rev().find(|&r| { let a = (i+r) % 8; a < 4 && self[a] == 0 }) {
             None => false,
             Some(r) => {
@@ -117,7 +125,7 @@ impl Board4 {
         let n = self[i];
         self[i] = 0;
         let (q, r) = (n / 7, (n % 7) as usize);
-        info!("q = {}, r = {}", q, r);
+        ////info!("q = {}, r = {}", q, r);
         for j in 1..r+1 {
             self[(i+j) % 8] += q+1;
         }
@@ -132,23 +140,23 @@ impl Board4 {
     }
 
     pub fn unsow(&mut self, i: usize, n: u8) -> usize {
-        info!("unsow: j: {}, n: {}", i, n);
+        //info!("unsow: j: {}, n: {}", i, n);
 
         let r = (1..8).rev().find(|&r| { let a = (i+r) % 8; a < 4 && self[a] == 0 }).unwrap();
-        info!("r: {} (i = {})", r, (i + r) % 8);
+        //info!("r: {} (i = {})", r, (i + r) % 8);
 
         for k in 1..r {
-            info!("{} -= {}", (i+k) % 8, n);
+            //info!("{} -= {}", (i+k) % 8, n);
             assert!(self[(i+k) % 8] >= n);
             self[(i+k) % 8] -= n;
         }
         for k in r+1..9 {
-            info!("{} -= {}", (i+k) % 8, n+1);
+            //info!("{} -= {}", (i+k) % 8, n+1);
             assert!(self[(i+k) % 8] >= n+1);
             self[(i+k) % 8] -= n + 1;
         }
         let j = (i + r) % 8;
-        info!("{} += {}", j, (8 - r) as u8 + 7*n);
+        //info!("{} += {}", j, (8 - r) as u8 + 7*n);
         self[j] += (8 - r) as u8 + 7*n;
         return j;
     }
