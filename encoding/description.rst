@@ -45,6 +45,6 @@ l'équation on obtient bien la propriété pour :math:`t+1`.
 
 De plus on a directement :math:`\binom{c_{t-1}}{t} \leq \Sum_{i=0}^{t-1}
 \binom{c_i}{i+1}`. On en déduit donc que :math:`c_{t-1}` est bien le plus grand
-entier :math:`a` tel que :math:`\binom{a}{t} \leq \text{enc}(c) -
-\Sum_{i=t}^{P-1} \binom{c_i}{i+1}`, d'où la correction de l'algorithme de
-décodage.
+entier :math:`a` tel que
+:math:`\binom{a}{t} \leq \text{enc}(c) - \Sum_{i=t}^{P-1} \binom{c_i}{i+1}`,
+d'où la correction de l'algorithme de décodage.
