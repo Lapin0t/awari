@@ -62,3 +62,21 @@ fn sow_unsow_bij(b: Board4) -> bool {
     }
     return true;
 }
+
+#[quickcheck]
+fn succ_pred(u: Board4) -> bool {
+    u.successors().into_iter().all(
+        |(v, k)| k > 0 || v.predecessors().contains(&u))
+}
+
+#[quickcheck]
+fn pred_succ(u: Board4) -> bool {
+    info!("$$$$$$$$$$ pred-succ, board:{:?}", u);
+    u.predecessors()
+      .into_iter()
+      .inspect(|&v| info!("%%%% new pred:{:?}", v) )
+      .all(|v| v.successors()
+                 .into_iter()
+                 .inspect(|&(w, _)| info!("suc of preds {:?}", w) )
+                 .any(|(w,_)| u == w))
+}
