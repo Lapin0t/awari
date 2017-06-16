@@ -24,11 +24,46 @@ On code alors le vecteur :math:`B` par:
    \text{enc}(B) = \Sum_{i=0}^{P-1} \binom{B_i}{i+1}
 
 
+Algorithmes
+-----------
+
+Algorithmes exprimés en python:
+
+.. code:: python
+
+    def encode(xs):
+        g, c = 0, 0
+        for i, x in enumerate(xs):
+            c += x
+            g += binom(i + 1, c + i)
+        return g
+
+    def decode(g, n_pits=8):
+        xs = [0] * n_pits
+        for i in reversed(range(n_pits)):
+            n = binom_inv(i+1, g)
+            g -= binom(i+1, n)
+            xs[i] = n
+        for i in reversed(range(1, n_pits)):
+            xs[i] = xs[i] - xs[i-1] - 1
+        return xs
+
+
+On aura préalablement défini les fonctions ``binom(k,n)`` et ``binom_inv(k,b)``
+calculant respectivement le coefficient binomial :math:`\binom{n}{k}` et le
+plus grand :math:`n` tel que :math:`\binom{n}{k} \leq b` (on peut précalculer
+la table de manière à avoir la première en O(1) et la seconde en O(log n) ie
+O(1) pour P fixé).
+
+On a donc directement des complexités O(P) pour les deux fonctions.
+
+
 Bijectivité de :math:`enc`
 --------------------------
 
 On montre que si on énumère les vecteurs dans l'ordre lexicographique (de
-droite à gauche), blabla, dénombrement TODO.
+droite à gauche), blabla, dénombrement TODO. Donc l'encodage est bien injectif
+et surjectif.
 
 Montrons la correction de l'algorithme de décodage, on montre:
 
