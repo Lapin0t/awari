@@ -24,3 +24,7 @@ pub fn binom_maxinv(k : usize , x: usize ) -> (usize , usize ) {
     }
     return (n - 1, b * (n-k) / n);
 }
+
+pub fn divmod(n: u8, d: u8) -> (u8, usize) {
+    ((n - 1) / d, ((n - 1) % d + 1) as usize)
+}
