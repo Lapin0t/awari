@@ -1,7 +1,7 @@
 use std::cmp::max;
 use std::boxed::{Box,HEAP};
 
-use awari::Board4;
+use awari::{Awari,Board4};
 
 
 pub type Table = Box<[(i8, u8); 10518300]>;

@@ -1,6 +1,6 @@
 use quickcheck::{Arbitrary,Gen};
 
-use awari::Board4;
+use awari::{Awari,Board4};
 use utils::{binom,binom_maxinv};
 
 
