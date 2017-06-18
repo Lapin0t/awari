@@ -38,13 +38,13 @@ Algorithmes exprimés en python:
             g += binom(i + 1, c + i)
         return g
 
-    def decode(g, n_pits=8):
+    def decode(g):
         xs = [0] * n_pits
-        for i in reversed(range(n_pits)):
+        for i in reversed(range(P)):
             n = binom_inv(i+1, g)
             g -= binom(i+1, n)
             xs[i] = n
-        for i in reversed(range(1, n_pits)):
+        for i in reversed(range(1, P)):
             xs[i] = xs[i] - xs[i-1] - 1
         return xs
 
@@ -83,3 +83,24 @@ De plus on a directement :math:`\binom{c_{t-1}}{t} \leq \Sum_{i=0}^{t-1}
 entier :math:`a` tel que
 :math:`\binom{a}{t} \leq \text{enc}(c) - \Sum_{i=t}^{P-1} \binom{c_i}{i+1}`,
 d'où la correction de l'algorithme de décodage.
+
+
+Itération sur les positions
+---------------------------
+
+ On remarque facilement que la position à :math:`n` graines qui a le plus petit
+ code est :math:`(0, 0, \dots, n)`, son code est :math:`\binom{P}{P+n-1}`. On a
+ vu que les positions étaient triées par nombre de graînes croissant pour
+ l'ordre induit par les codes (:math:`c_{P-1} = n + P` avec :math:`n` le nombre
+ de graînes). Ainsi on en déduit une manière simple d'itérer sur toutes les
+ positions à :math:`n` graînes:
+
+ .. code:: python
+
+    map(decode, range(binom(P, P+n-1), binom(P, P+n)))
+
+
+Cette approche fait partie de la catégorie ranking-unranking: elle est simple à
+comprendre mais a le défaut de faire beaucoup d'appels à ``decode``. On peut
+l'affiner en générant directement les vecteurs :math:`c_i` dans l'ordre
+lexicographique par changements incrémentaux.
