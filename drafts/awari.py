@@ -17,7 +17,7 @@ def succs(state):
         change_player(s)
         yield tuple(s)
 
-def move(state, i):
+def sow(state, i):
     n, r = divmod(state[i], NPITS - 1)
     state[i] = 0
     for j in range(NPITS - 1):
@@ -26,19 +26,39 @@ def move(state, i):
             state[idx] += n + 1
         else:
             state[idx] += n
-    last = (i + r) % NPITS
+    if r == 0:
+        return (i-1) % NPITS, n - 1
+    else:
+        return (i+r) % NPITS, n
+
+def unsow(state, i, n):
+    for r in range(1, NPITS):
+        a = (i + r) % NPITS
+        if a < PPITS and state[a] == 0:
+            break
+    else:
+        raise ValueError
+    for k in range(1, r):
+        state[(i+k) % NPITS] -= n
+    for k in range(r+1, NPITS+1):
+        state[(i+k) % NPITS] -= n+1
+    state[(i+r) % NPITS] += NPITS - r + (NPITS-1)*n
+    return (i+r) % NPITS
+
+def collect(last):
     win = 0
-    while last >= PPITS and 2 <= state[last] <= 3:
-        win += state[last]
-        state[last] = 0
-        last -= 1
+    for i in reversed(range(PPITS, last + 1)):
+        if state[i] not in (2, 3):
+            break
+        win += state[i]
+        state[i] = 0
     return win
 
 def change_player(state):
     state[:] = state[PPITS:] + state[:PPITS]
 
 
-def disp_state(state):
+def disp(state):
     him = '|'.join('%2d' % n for n in state[PPITS:][::-1])
     me = '|'.join('%2d' % n for n in state[:PPITS])
     print(him)
