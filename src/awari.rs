@@ -42,7 +42,7 @@ pub trait Awari : Index<usize,Output=u8> + IndexMut<usize> + Copy {
     }
 
     fn rotate(&mut self) {
-        for i in 0..Self::M {
+        for i in 0..Self::N {
             let x = self[i];
             self[i] = self[i + Self::N];
             self[i + Self::N] = x;
@@ -153,13 +153,14 @@ pub trait Awari : Index<usize,Output=u8> + IndexMut<usize> + Copy {
         cpy.rotate();
         
         let mut v = Vec::new();
-        for i in 0..Self::N {
+        for i in 0..Self::M {
             for n in 0..4 {
+                info!("pred: testing for i={}, n={}", i, n);
                 if cpy.valid_unsow(i, n) {
                     let mut s = cpy;
                     s.unsow(i, n);
                     v.push(s);
-                }
+                } else { info!("invalid") }
             }
         }
         return v;
