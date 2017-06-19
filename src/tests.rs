@@ -7,14 +7,15 @@ use utils::{binom,binom_maxinv};
 impl Arbitrary for Board4 {
     fn arbitrary<G: Gen>(g: &mut G) -> Board4 {
         let mut b : [u8; 8] = [0; 8];
+        let n = g.gen_range(5, 24);
         for i in 1..8 {
-            b[i] = g.gen_range(0, 24);
+            b[i] = g.gen_range(0, n);
         }
         b.sort();
         for i in 0..7 {
             b[i] = b[i+1] - b[i];
         }
-        b[7] = 24 - b[7];
+        b[7] = n - b[7];
         return Board4(b);
     }
 }
@@ -65,18 +66,16 @@ fn sow_unsow_bij(b: Board4) -> bool {
 
 #[quickcheck]
 fn succ_pred(u: Board4) -> bool {
-    u.successors().into_iter().all(
-        |(v, k)| k > 0 || v.predecessors().contains(&u))
+    u.successors()
+      .into_iter()
+      .all(|(v, k)| k > 0 || v.predecessors().contains(&u))
 }
 
 #[quickcheck]
 fn pred_succ(u: Board4) -> bool {
-    info!("$$$$$$$$$$ pred-succ, board:{:?}", u);
     u.predecessors()
       .into_iter()
-      .inspect(|&v| info!("%%%% new pred:{:?}", v) )
       .all(|v| v.successors()
                  .into_iter()
-                 .inspect(|&(w, _)| info!("suc of preds {:?}", w) )
                  .any(|(w,_)| u == w))
 }
