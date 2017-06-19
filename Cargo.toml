@@ -11,3 +11,6 @@ lazy_static = "0.2"
 [dev-dependencies]
 quickcheck = "^0.4"
 quickcheck_macros = "^0.4"
+
+[profile.release]
+debug = true
