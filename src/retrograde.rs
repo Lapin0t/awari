@@ -4,33 +4,40 @@ use std::boxed::{Box,HEAP};
 use awari::{Awari,Board4};
 
 
-pub type Table = Box<[(i8, u8); 10518300]>;
+pub type Table = Box<[(i8, u8, bool); 10518300]>;
 
 
-fn propagate(table: &mut Table, u: &Board4, score: i8, sat: i8) {
-    let id = u.encode();
-    let st = table[id];
-    println!("propagate: board: {}, score: {}, tbd: {}", id, st.0, st.1);
-    if st.1 > 0 {
-        table[id].1 -= 1;
-        let s = max(st.0, -score);
-        table[id].0 = s;
-        if table[id].0 == sat || table[id].0 == 0 {
-            for v in u.predecessors() {
-                propagate(table, &v, s, sat);
+fn propagate(table: &mut Table, u: Board4, score: i8, sat: i8) {
+    let mut stack = vec![(u, score)];
+    while let Some((u, score)) = stack.pop() {
+        let id = u.encode();
+        let st = table[id];
+        info!("propagate: table[{}]=({}, {}, {}), score={}, sat={}", id, st.0,
+                st.1, st.2, score, sat);
+        //assert!(!st.2);
+        if !st.2 {
+            table[id].1 -= 1;
+            let s = max(st.0, -score);
+            table[id].0 = s;
+            if table[id].0 == sat || table[id].1 == 0 {
+                table[id].1 = 0;
+                table[id].2 = true;
+                info!("STABLE: {} => {}", id, s);
+                for v in u.predecessors() {
+                    stack.push((v, s));
+                }
             }
+        } else {
+            assert!(st.0 >= -score);
         }
-    } else {
-        println!("ERROR: id={}; v-board={}, v-succ={}", id, st.0, score);
-       // assert!(st.0 >= -score);
     }
 }
 
 
 pub fn analysis() -> Table {
-    let mut table = HEAP <- [(-24, 0); 10518300];
-    //table[0] = (0, 0);
-    for n in 0..3 {
+    let mut table = HEAP <- [(-24, 0, false); 10518300];
+    table[0] = (0, 0, true);
+    for n in 0..25 {
         println!("seed num {}", n);
 
         // initialization
@@ -41,24 +48,25 @@ pub fn analysis() -> Table {
                 if k > 0 {
                     let score = k as i8 - table[v.encode()].0;
                     table[id].0 = max(table[id].0, score);
-                } else {
-                    table[id].1 += 1;  // needs convergence
                 }
+                table[id].1 += 1;  // needs convergence
             }
         }
 
         // convergence
         for l in 0..n+1 {
-            println!("iteration {}", l);
+            info!("iteration {}", l);
+            let sat = (n - l) as i8;
             for u in Board4::iter_config(n) {
                 let id = u.encode();
-                let sat = (n - l) as i8;
                 let st = table[id];
-                println!("board: {}, score: {}, tbd: {}", id, st.0, st.1);
-                if st.0 == sat || st.1 == 0 {
+                //println!("board: {}, score: {}, tbd: {}", id, st.0, st.1);
+                if !st.2 && (st.0 == sat || st.1 == 0) {
                     table[id].1 = 0;
+                    table[id].2 = true;
+                    info!("STABLE: {} => {}", id, table[id].0);
                     for v in u.predecessors() {
-                        propagate(&mut table, &v, st.0, sat);
+                        propagate(&mut table, v, st.0, sat);
                     }
                 }
             }

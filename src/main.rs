@@ -36,7 +36,7 @@ fn main() {
     }*/
     println!("start");
     let table = retrograde::analysis();
-    for n in 0..4 {
+    for n in 0..25 {
         println!("configuration with {} seeds", n);
         for u in awari::Board4::iter_config(n) {
             let id = u.encode();
