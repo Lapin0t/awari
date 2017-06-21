@@ -1,12 +1,13 @@
 Encodage compact de plateaux d'Awalé
 ====================================
 
-Le but ici est de construire une fonction de *ranking* pour les plateaux
-d'awalé, c'est-à-dire une fonction qui donnera leur indice entier tel qu'un
-ordre choisi (ici colex) coincide avec l'ordre usuel sur les indices. Cette
-fonction de ranking est également une fonction de hachage parfaite, qui possède
-la propriété d'être "compacte", c'est-à-dire qu'elle est à valeur dans
-:math:`[0,N)` où :math:`N` est le nombre d'éléments de l'ensemble de départ.
+Le but ici est de construire une fonction de *ranking* pour les vecteurs
+d'entiers, de taille fixe et de somme inférieure à une constante, c'est-à-dire
+une fonction qui donnera leur indice entier tel qu'un ordre choisi (ici colex)
+coincide avec l'ordre usuel sur les indices. Cette fonction de ranking est
+également une fonction de hachage parfaite, qui possède la propriété d'être
+"compacte", c'est-à-dire qu'elle est à valeur dans :math:`[0,N)` où :math:`N`
+est le nombre d'éléments de l'ensemble de départ.
 
 On s'intéresse aux plateaux d'Awalé à :math:`P` puits (:math:`P = 2Q`).
 
@@ -31,6 +32,13 @@ système numéral combinatoire (knuth_):
 .. math::
 
    \text{enc}(B) = \Sum_{i=0}^{P-1} \binom{B_i}{i+1}
+
+
+On peut maintenant s'aperçevoir que le but véritable va être de convertir des
+nombres de manière efficace entre le système numéral combinatoire et le système
+usuel (en unaire si on considère les mots machine comme une structure opaque,
+où en binaire sinon). Auparavant nous allons également montrer que ce codage
+ressemble effectivement à un système numéral.
 
 
 Algorithmes
