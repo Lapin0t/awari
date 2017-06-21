@@ -112,7 +112,7 @@ l'ordre induit par les codes (:math:`c_{P-1} = n + P` avec :math:`n` le nombre
 de graînes). Ainsi on en déduit une manière simple d'itérer sur toutes les
 positions à :math:`n` graînes:
 
- .. code:: python
+.. code:: python
 
     map(decode, range(binom(P, P+n-1), binom(P, P+n)))
 
