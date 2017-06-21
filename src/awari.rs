@@ -1,11 +1,20 @@
-use std::ops::{Index,IndexMut,Range};
+use std::ops::{Index,IndexMut};
 use std::fmt;
 use std::fmt::{Debug,Formatter};
-use std::iter::{Iterator,Map};
+use std::iter::Iterator;
 use std::vec::Vec;
+use std::marker::PhantomData;
 
 use utils::{binom,binom_maxinv,divmod};
 
+
+
+pub struct Iter<T: Awari> {
+    curr: usize,
+    last: usize,
+    big: usize,
+    _marker: PhantomData<T>,
+}
 
 pub trait Awari : Index<usize,Output=u8> + IndexMut<usize> + Copy {
     const N : usize;
@@ -13,9 +22,12 @@ pub trait Awari : Index<usize,Output=u8> + IndexMut<usize> + Copy {
 
     fn new() -> Self;
 
-    fn iter_config(n: usize) -> Map<Range<usize>, fn(usize) -> Self> {
-        (binom(Self::M, Self::M+n-1)..binom(Self::M, Self::M+n))
-            .map(Self::decode)
+    fn iter_config(n: usize) -> Iter<Self> {
+        let x = 1 << Self::M - 1;
+        return Iter { curr: x - 1,
+                      last: (x - 1) << n,
+                      big: x << n,
+                      _marker: PhantomData }
     }
 
     fn encode(&self) -> usize {
@@ -27,7 +39,7 @@ pub trait Awari : Index<usize,Output=u8> + IndexMut<usize> + Copy {
         return n;
     }
 
-    fn decode(n : usize) -> Self {
+    fn decode(n: usize) -> Self {
         let mut n = n;
         let mut s = Self::new();
         for i in (0..Self::M).rev() {
@@ -179,6 +191,34 @@ pub trait Awari : Index<usize,Output=u8> + IndexMut<usize> + Copy {
     }
 }
 
+
+impl<T: Awari> Iterator for Iter<T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<T> {
+        if self.curr > self.last {
+            return None;
+        } else {
+
+            // extract the board
+            let mut x = self.curr | self.big;
+            let mut s = T::new();
+
+            for i in 0..T::M {
+                let tz = x.trailing_zeros();
+                s[i] = tz as u8;
+                x >>= tz + 1;
+            }
+
+            // increment state
+            let c = self.curr;
+            let t = c | (c - 1);
+            self.curr = (t+1) | (((!t & (t+1)) - 1) >> (c.trailing_zeros() + 1));
+
+            return Some(s);
+        }
+    }
+}
 
 
 #[derive(Copy, Clone, PartialEq, Eq)]
