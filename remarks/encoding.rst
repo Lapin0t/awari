@@ -27,7 +27,7 @@ plateau d'awalé en un vecteur :math:`B` où:
 
 
 On code alors le vecteur :math:`B` par le nombre qu'il représente, vu dans le
-système numéral combinatoire (knuth_):
+système numéral combinatoire ([Knuth]_):
 
 .. math::
 
@@ -142,8 +142,9 @@ de bits de taille :math:`P+n-1` contenant exactement :math:`P-1` ``1``.
 
 Comme tout n'arrive pas par hasard, il existe une manière d'itérer sur tous les
 tels vecteurs de bits (en le voyant comme des entiers machine) exactement dans
-le même ordre lexicographique (ref: bithacks_) (note: ``ctz`` signifie "count
-trailing zeros", c'est souvent une primitive machine):
+le même ordre lexicographique (tiré de [Bithacks]_, [Knuth]_ donne une autre
+version un peu moins efficace utilisant une division) (note: ``ctz`` signifie
+"count trailing zeros", c'est souvent une primitive machine):
 
 .. code:: python
 
@@ -176,5 +177,5 @@ de somme fixée:
        return xs
 
 
-.. _knuth: Bitwise tricks and techniques, 2005, TAoCP 4, Fascicle 1.
-.. _bithacks: http://graphics.stanford.edu/~seander/bithacks.html#NextBitPermutation
+.. [Knuth] Bitwise tricks and techniques, 2005, TAoCP 4, Fascicle 1.
+.. [Bithacks] http://graphics.stanford.edu/~seander/bithacks.html#NextBitPermutation
