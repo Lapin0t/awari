@@ -1,77 +1,185 @@
-use std::ops::{Index,IndexMut};
-use std::fmt;
-use std::fmt::{Debug,Formatter};
+use std::ops::{Deref,DerefMut};
 use std::iter::Iterator;
-use std::vec::Vec;
-use std::marker::PhantomData;
+use std::fmt;
+use std::cmp::min;
 
 use utils::{binom,binom_maxinv,divmod};
 
 
+/// usefull globals
 
-pub struct Iter<T: Awari> {
+#[cfg(small_board)]
+pub const N: usize = 4;
+#[cfg(small_board)]
+pub const MAX_CODE : usize = 10518299;
+
+#[cfg(not(small_board))]
+pub const N: usize = 6;
+
+#[cfg(not(small_board))]
+pub const MAX_CODE : usize = 1399358844974;
+
+pub const SIZE: usize = 2 * N;
+
+
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub struct Awari([u8; SIZE]);
+
+
+pub struct Iter {
     curr: usize,
     last: usize,
     big: usize,
-    _marker: PhantomData<T>,
 }
 
-pub trait Awari : Index<usize,Output=u8> + IndexMut<usize> + Copy {
-    const N : usize;
-    const M : usize = 2*Self::N;
 
-    fn new() -> Self;
+// use deref-coercion to provide all array (and slice) goodies on Awari
+impl Deref for Awari {
+    type Target = [u8; SIZE];
 
-    fn iter_config(n: usize) -> Iter<Self> {
-        let x = 1 << Self::M - 1;
+    fn deref(&self) -> &[u8; SIZE] {
+        let &Awari(ref v) = self;
+        return v;
+    }
+}
+
+
+impl DerefMut for Awari {
+    fn deref_mut(&mut self) -> &mut [u8; SIZE] {
+        let &mut Awari(ref mut v) = self;
+        return v;
+    }
+}
+
+
+impl fmt::Debug for Awari {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "\n+")?;
+        for _ in 0..N {
+            write!(f, "--+")?;
+        }
+        write!(f, "\n|")?;
+        for i in (N..SIZE).rev() {
+            write!(f, "{:2}|", self[i])?;
+        }
+        write!(f, "\n+")?;
+        for _ in 0..N {
+            write!(f, "--+")?;
+        }
+        write!(f, "\n|")?;
+        for i in 0..N {
+            write!(f, "{:2}|", self[i])?;
+        }
+        write!(f, "\n+")?;
+        for _ in 0..N {
+            write!(f, "--+")?;
+        }
+        return Ok(());
+    }
+}
+
+
+impl Awari {
+    pub fn new() -> Self {
+        Awari([0; SIZE])
+    }
+
+    pub fn iter_config(n: usize) -> Iter {
+        let x = 1 << SIZE - 1;
         return Iter { curr: x - 1,
                       last: (x - 1) << n,
-                      big: x << n,
-                      _marker: PhantomData }
+                      big: x << n }
     }
 
-    fn encode(&self) -> usize {
-        let (mut n, mut c) = (0, 0);
-        for i in 0..Self::M {
+    pub fn encode(&self) -> usize {
+        let (mut g, mut c) = (0, 0);
+        for i in 0..SIZE {
             c += self[i] as usize;
-            n += binom(i + 1, c + i);
+            g += binom(i + 1, c + i);
         }
-        return n;
+        return g;
     }
 
-    fn decode(n: usize) -> Self {
-        let mut n = n;
+    pub fn decode(g: usize) -> Self {
+        let mut g = g;
         let mut s = Self::new();
-        for i in (0..Self::M).rev() {
-            let (x, b) = binom_maxinv(i + 1, n);
+        for i in (0..SIZE).rev() {
+            let (x, b) = binom_maxinv(i + 1, g);
             s[i] = x as u8;
-            n -= b;
+            g -= b;
         }
-        for i in (1..Self::M).rev() {
-            s[i] = s[i] - s[i-1] - 1
+        for i in (1..SIZE).rev() {
+            s[i] = s[i] - s[i-1] - 1;
         }
         return s;
     }
 
+    pub fn predecessors(&self) -> Vec<Self> {
+        let mut cpy = *self;
+        cpy.rotate();
+        //info!("predecessors: board: {:?}", &cpy);
+        
+        let mut v = Vec::new();
+        
+        if (N..SIZE).all(|k| self[k] == 0) {
+            return v;
+        }
+
+        let mut cmin = [0; SIZE-1];
+        for i in 0..N {
+            if self[i] == 0 {
+                let mut m = self[i+1];
+                cmin[0] = m;
+                for r in 1..SIZE-1 {
+                    let x = self[(i+r+1) % SIZE];
+                    if m > x {
+                        m = x;
+                    }
+                    cmin[r] = m;
+                }
+                let last = cmin[SIZE-2]+1;
+                for r in 0..SIZE-1 {
+                    for n in 0..min(cmin[r], last) {
+                        let mut s = cpy;
+                        s.unsow(i, r + 1, n);
+                        v.push(s);
+                    }
+                }
+            }
+        }
+        return v;
+    }
+
+    pub fn successors(&self) -> Vec<(Self, u8)> {
+        let mut v = Vec::new();
+        for i in 0..N {
+            if self.valid_sow(i) {
+                let mut s = *self;  // copy
+                let k = s.play(i);
+                v.push((s, k));
+            }
+        }
+        return v;
+    }
+
     fn rotate(&mut self) {
-        for i in 0..Self::N {
-            let x = self[i];
-            self[i] = self[i + Self::N];
-            self[i + Self::N] = x;
+        for i in 0..N {
+            self.swap(i, i + N);
         }
     }
 
     fn valid_sow(&self, i: usize) -> bool {
-        info!("valid_sow, i={}", i);
         let n = self[i];
-        if i >= Self::N || n == 0 { return false; }
-        else {
-            let (q, r) = divmod(n, (Self::M - 1) as u8);
-            let j = (i + r) % Self::M;
-            info!("q={}, r={}, j={}", q, r, j);
+        if i >= N || n == 0 {
+            return false;
+        } else {
+            let (q, r) = divmod(n, (SIZE - 1) as u8);
+            let j = (i + r) % SIZE;
+            //info!("q={}, r={}, j={}", q, r, j);
             if j < i { return true; }  // at least one everywhere, no capture
             let mut take = true;
-            for k in (Self::N..Self::M).rev() {
+            for k in (N..SIZE).rev() {
                 if k > j {
                     if self[k] + q > 0 { return true; }
                 } else {
@@ -82,70 +190,38 @@ pub trait Awari : Index<usize,Output=u8> + IndexMut<usize> + Copy {
             return false;
         }
     }
-
-    fn valid_unsow(&self, i: usize, n: u8) -> bool {
-        if i >= Self::N && (self[i] == 2 || self[i] == 3) {
-            return false;
-        }
-        if (Self::N..Self::M).all(|k| self[k] == 0) {
-            return false;
-        }
-        match (1..Self::M).rev()
-                  .find(|&r| { let a = (i+r) % Self::M;
-                               a < Self::N && self[a] == 0 }) {
-            None => false,
-            Some(r) => {
-                (1..r).all(|k| self[(i+k) % Self::M] >= n) &&
-                (r+1..Self::M+1).all(|k| self[(i+k) % Self::M] >= n + 1)
-            }
-        }
-    }
-
+    
     fn sow(&mut self, i: usize) -> (usize, u8) {
-        assert!(i < Self::N, "pit index out of bounds");
+        assert!(i < N, "pit index out of bounds");
         assert!(self[i] > 0, "no seeds in pit");
         let n = self[i];
         self[i] = 0;
-        let (q, r) = divmod(n, (Self::M - 1) as u8);
+        let (q, r) = divmod(n, (SIZE - 1) as u8);
         for j in 1..r+1 {
-            self[(i+j) % Self::M] += q+1;
+            self[(i+j) % SIZE] += q+1;
         }
-        for j in r+1..Self::M {
-            self[(i+j) % Self::M] += q;
+        for j in r+1..SIZE {
+            self[(i+j) % SIZE] += q;
         }
-        return ((i+r) % Self::M, q as u8);
+        return ((i+r) % SIZE, q as u8);
     }
 
-    fn unsow(&mut self, i: usize, n: u8) -> usize {
-        //info!("unsow: j: {}, n: {}", i, n);
-
-        let r = (1..Self::M).rev()
-            .find(|&r| { let a = (i+r) % Self::M;
-                         a < Self::N && self[a] == 0 })
-            .unwrap();
-
-        //info!("r: {} (i = {})", r, (i + r) % 8);
-
-        for k in 1..r {
-            //info!("{} -= {}", (i+k) % 8, n);
-            assert!(self[(i+k) % Self::M] >= n);
-            self[(i+k) % Self::M] -= n;
+    fn unsow(&mut self, i: usize, r: usize, n: u8) {
+        for k in 0..r {
+            assert!(self[(i+k+1) % SIZE] >= n + 1);
+            self[(i+k+1) % SIZE] -= n + 1;
         }
-        for k in r+1..Self::M+1 {
-            //info!("{} -= {}", (i+k) % 8, n+1);
-            assert!(self[(i+k) % Self::M] >= n+1);
-            self[(i+k) % Self::M] -= n + 1;
+        for k in r..SIZE-1 {
+            assert!(self[(i+k+1) % SIZE] >= n);
+            self[(i+k+1) % SIZE] -= n;
         }
-        let j = (i + r) % Self::M;
-        //info!("{} += {}", j, (8 - r) as u8 + 7*n);
-        self[j] += (Self::M - r) as u8 + (Self::M as u8 - 1) * n;
-        return j;
+        self[i] += ((SIZE - 1) as u8)*n + r as u8;
     }
 
     fn collect(&mut self, i: usize) -> u8 {
         let mut j = i;
         let mut n = 0;
-        while j >= Self::N && (self[j] == 2 || self[j] == 3) {
+        while j >= N && (self[j] == 2 || self[j] == 3) {
             n += self[j];
             self[j] = 0;
             j -= 1;
@@ -159,52 +235,22 @@ pub trait Awari : Index<usize,Output=u8> + IndexMut<usize> + Copy {
         self.rotate();
         return k;
     }
-
-    fn predecessors(&self) -> Vec<Self> {
-        let mut cpy = *self;
-        cpy.rotate();
-        
-        let mut v = Vec::new();
-        for i in 0..Self::M {
-            for n in 0..4 {
-                info!("pred: testing for i={}, n={}", i, n);
-                if cpy.valid_unsow(i, n) {
-                    let mut s = cpy;
-                    s.unsow(i, n);
-                    v.push(s);
-                } else { info!("invalid") }
-            }
-        }
-        return v;
-    }
-
-    fn successors(&self) -> Vec<(Self, u8)> {
-        let mut v = Vec::new();
-        for i in 0..Self::N {
-            if self.valid_sow(i) {
-                let mut s = *self;  // copy
-                let k = s.play(i);
-                v.push((s, k));
-            }
-        }
-        return v;
-    }
+    
 }
 
 
-impl<T: Awari> Iterator for Iter<T> {
-    type Item = T;
+impl Iterator for Iter {
+    type Item = Awari;
 
-    fn next(&mut self) -> Option<T> {
+    fn next(&mut self) -> Option<Awari> {
         if self.curr > self.last {
             return None;
         } else {
-
             // extract the board
             let mut x = self.curr | self.big;
-            let mut s = T::new();
+            let mut s = Awari::new();
 
-            for i in 0..T::M {
+            for i in 0..SIZE {
                 let tz = x.trailing_zeros();
                 s[i] = tz as u8;
                 x >>= tz + 1;
@@ -220,76 +266,49 @@ impl<T: Awari> Iterator for Iter<T> {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use quickcheck::{Arbitrary,Gen};
+    use super::{N,SIZE,Awari};
 
-#[derive(Copy, Clone, PartialEq, Eq)]
-pub struct Board4(pub [u8; 8]);
+    
+    impl Arbitrary for Awari {
+        fn arbitrary<G: Gen>(g: &mut G) -> Awari {
+            let mut b = Awari::new();
 
-
-impl Index<usize> for Board4 {
-    type Output = u8;
-    fn index(&self, i: usize) -> &u8 {
-        self.0.index(i)
+            let n = if cfg!(small_board) { g.gen_range(5, 25) }
+                    else { g.gen_range(10, 49) };
+            for i in 1..SIZE {
+                b[i] = g.gen_range(0, n);
+            }
+            (*b).sort();
+            for i in 0..SIZE-1 {
+                b[i] = b[i+1] - b[i];
+            }
+            b[SIZE-1] = n - b[SIZE-1];
+            return b;
+        }
     }
-}
 
 
-impl IndexMut<usize> for Board4 {
-    fn index_mut(&mut self, i: usize) -> &mut u8 {
-        self.0.index_mut(i)
+    #[quickcheck]
+    fn coding_bijective(u: Awari) -> bool {
+        u == Awari::decode(u.encode())
     }
-}
 
-
-impl Debug for Board4 {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "\n+--+--+--+--+")?;
-        write!(f, "\n|{:2}|{:2}|{:2}|{:2}|",
-              self[7], self[6], self[5], self[4])?;
-        write!(f, "\n+--+--+--+--+")?;
-        write!(f, "\n|{:2}|{:2}|{:2}|{:2}|",
-              self[0], self[1], self[2], self[3])?;
-        write!(f, "\n+--+--+--+--+")
+    #[quickcheck]
+    fn all_succ_in_pred(u: Awari) -> bool {
+        u.successors()
+          .into_iter()
+          .all(|(v, k)| k > 0 || v.predecessors().contains(&u))
     }
-}
 
-impl Awari for Board4 {
-    const N : usize = 4;
-    fn new() -> Self { Board4([0; 8]) }
-}
-
-
-#[derive(Copy, Clone, PartialEq, Eq)]
-pub struct Board6(pub [u8; 12]);
-
-
-impl Index<usize> for Board6 {
-    type Output = u8;
-    fn index(&self, i: usize) -> &u8 {
-        self.0.index(i)
+    #[quickcheck]
+    fn all_pred_in_succ(u: Awari) -> bool {
+        u.predecessors()
+          .into_iter()
+          .all(|v| v.successors()
+                     .into_iter()
+                     .any(|(w, _)| u == w))
     }
-}
-
-
-impl IndexMut<usize> for Board6 {
-    fn index_mut(&mut self, i: usize) -> &mut u8 {
-        self.0.index_mut(i)
-    }
-}
-
-
-impl Debug for Board6 {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "\n+--+--+--+--+--+--+")?;
-        write!(f, "\n|{:2}|{:2}|{:2}|{:2}|{:2}|{:2}|",
-              self[11], self[10], self[9], self[8], self[7], self[6])?;
-        write!(f, "\n+--+--+--+--+--+--+")?;
-        write!(f, "\n|{:2}|{:2}|{:2}|{:2}|{:2}|{:2}|",
-              self[0], self[1], self[2], self[3], self[4], self[5])?;
-        write!(f, "\n+--+--+--+--+--+--+")
-    }
-}
-
-impl Awari for Board6 {
-    const N : usize = 6;
-    fn new() -> Self { Board6([0; 12]) }
 }
