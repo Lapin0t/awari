@@ -1,13 +1,13 @@
 use std::cmp::max;
 use std::boxed::{Box,HEAP};
 
-use awari::{Awari,Board4};
+use awari::Awari;
 
 
 pub type Table = Box<[(i8, u8, bool); 10518300]>;
 
 
-fn propagate(table: &mut Table, u: Board4, score: i8, sat: i8) {
+fn propagate(table: &mut Table, u: Awari, score: i8, sat: i8) {
     let mut stack = vec![(u, score)];
     while let Some((u, score)) = stack.pop() {
         let id = u.encode();
@@ -41,7 +41,7 @@ pub fn analysis() -> Table {
         println!("seed num {}", n);
 
         // initialization
-        for u in Board4::iter_config(n) {
+        for u in Awari::iter_config(n) {
             let id = u.encode();
             table[id].0 = -(n as i8);
             for (v, k) in u.successors() {
@@ -57,7 +57,7 @@ pub fn analysis() -> Table {
         for l in 0..n+1 {
             info!("iteration {}", l);
             let sat = (n - l) as i8;
-            for u in Board4::iter_config(n) {
+            for u in Awari::iter_config(n) {
                 let id = u.encode();
                 let st = table[id];
                 //println!("board: {}, score: {}, tbd: {}", id, st.0, st.1);
