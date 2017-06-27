@@ -101,8 +101,8 @@ impl Awari {
     pub fn encode(&self) -> usize {
         let (mut g, mut c) = (0, 0);
         for i in 0..SIZE {
-            c += self[i] as usize;
-            g += binom(i + 1, c + i);
+            c += 1 + self[i] as usize;
+            g += binom(i + 1, c - 1);
         }
         return g;
     }
@@ -124,7 +124,7 @@ impl Awari {
     pub fn predecessors(&self) -> Vec<Self> {
         let mut cpy = *self;
         cpy.rotate();
-        info!("predecessors: board: {:?}", &cpy);
+        //info!("predecessors: board: {:?}", &cpy);
         
         let mut v = Vec::new();
         
@@ -134,7 +134,7 @@ impl Awari {
 
         let mut cmin = [0; SIZE-1];
         for i in 0..N {
-            info!("cpy[{}]={}", i, cpy[i]);
+            //info!("cpy[{}]={}", i, cpy[i]);
             if cpy[i] == 0 {
                 let mut m = cpy[i+1];
                 cmin[0] = m;
@@ -146,12 +146,12 @@ impl Awari {
                     cmin[r] = m;
                 }
                 let last = cmin[SIZE-2]+1;
-                info!("i: {} cmin: {:?}", i, cmin);
+                //info!("i: {} cmin: {:?}", i, cmin);
                 for r in 0..SIZE-1 {
                     if ((i+r+1) % SIZE < N) || (cpy[(i+r+1) % SIZE] != 2 && cpy[(i+r+1) % SIZE] != 3) {
                         for n in 0..min(cmin[r], last) {
                             let mut s = cpy;
-                            info!("unsowing for i={}, r={}, n={}", i, r+1, n);
+                            //info!("unsowing for i={}, r={}, n={}", i, r+1, n);
                             s.unsow(i, r + 1, n);
                             v.push(s);
                         }
@@ -170,7 +170,7 @@ impl Awari {
                 let k = s.play(i);
                 v.push((s, k));
             } else {
-                info!("invalid sow: {}", i);
+                //info!("invalid sow: {}", i);
             }
         }
         return v;
@@ -205,8 +205,8 @@ impl Awari {
     }
     
     fn sow(&mut self, i: usize) -> (usize, u8) {
-        assert!(i < N, "pit index out of bounds");
-        assert!(self[i] > 0, "no seeds in pit");
+        debug_assert!(i < N, "pit index out of bounds");
+        debug_assert!(self[i] > 0, "no seeds in pit");
         let n = self[i];
         self[i] = 0;
         let (q, r) = divmod(n, (SIZE - 1) as u8);
@@ -221,11 +221,11 @@ impl Awari {
 
     fn unsow(&mut self, i: usize, r: usize, n: u8) {
         for k in 0..r {
-            assert!(self[(i+k+1) % SIZE] >= n + 1);
+            debug_assert!(self[(i+k+1) % SIZE] >= n + 1);
             self[(i+k+1) % SIZE] -= n + 1;
         }
         for k in r..SIZE-1 {
-            assert!(self[(i+k+1) % SIZE] >= n);
+            debug_assert!(self[(i+k+1) % SIZE] >= n);
             self[(i+k+1) % SIZE] -= n;
         }
         self[i] += ((SIZE - 1) as u8)*n + r as u8;
