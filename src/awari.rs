@@ -9,18 +9,24 @@ use utils::{binom,binom_maxinv,divmod};
 /// usefull globals
 
 #[cfg(small_board)]
-pub const N: usize = 4;
-#[cfg(small_board)]
-pub const MAX_CODE : usize = 10518299;
+mod globs {
+    pub const N: usize            = 4;
+    pub const SIZE: usize         = 8;
+    pub const MAX_CODE : usize    = 10518299;
+    pub const START_SEEDS : usize = 3;
+    pub const MAX_SEEDS: usize    = 24;
+}
 
 #[cfg(not(small_board))]
-pub const N: usize = 6;
+mod globs {
+    pub const N: usize            = 6;
+    pub const SIZE: usize         = 12;
+    pub const MAX_CODE : usize    = 1399358844974;
+    pub const START_SEEDS : usize = 3;
+    pub const MAX_SEEDS : usize   = 48;
+}
 
-#[cfg(not(small_board))]
-pub const MAX_CODE : usize = 1399358844974;
-
-pub const SIZE: usize = 2 * N;
-
+pub use self::globs::*;
 
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -118,32 +124,37 @@ impl Awari {
     pub fn predecessors(&self) -> Vec<Self> {
         let mut cpy = *self;
         cpy.rotate();
-        //info!("predecessors: board: {:?}", &cpy);
+        info!("predecessors: board: {:?}", &cpy);
         
         let mut v = Vec::new();
         
-        if (N..SIZE).all(|k| self[k] == 0) {
+        if (N..SIZE).all(|k| cpy[k] == 0) {
             return v;
         }
 
         let mut cmin = [0; SIZE-1];
         for i in 0..N {
-            if self[i] == 0 {
-                let mut m = self[i+1];
+            info!("cpy[{}]={}", i, cpy[i]);
+            if cpy[i] == 0 {
+                let mut m = cpy[i+1];
                 cmin[0] = m;
                 for r in 1..SIZE-1 {
-                    let x = self[(i+r+1) % SIZE];
+                    let x = cpy[(i+r+1) % SIZE];
                     if m > x {
                         m = x;
                     }
                     cmin[r] = m;
                 }
                 let last = cmin[SIZE-2]+1;
+                info!("i: {} cmin: {:?}", i, cmin);
                 for r in 0..SIZE-1 {
-                    for n in 0..min(cmin[r], last) {
-                        let mut s = cpy;
-                        s.unsow(i, r + 1, n);
-                        v.push(s);
+                    if ((i+r+1) % SIZE < N) || (cpy[(i+r+1) % SIZE] != 2 && cpy[(i+r+1) % SIZE] != 3) {
+                        for n in 0..min(cmin[r], last) {
+                            let mut s = cpy;
+                            info!("unsowing for i={}, r={}, n={}", i, r+1, n);
+                            s.unsow(i, r + 1, n);
+                            v.push(s);
+                        }
                     }
                 }
             }
@@ -158,6 +169,8 @@ impl Awari {
                 let mut s = *self;  // copy
                 let k = s.play(i);
                 v.push((s, k));
+            } else {
+                info!("invalid sow: {}", i);
             }
         }
         return v;
@@ -269,15 +282,14 @@ impl Iterator for Iter {
 #[cfg(test)]
 mod tests {
     use quickcheck::{Arbitrary,Gen};
-    use super::{N,SIZE,Awari};
+    use super::{SIZE,MAX_SEEDS,Awari};
 
     
     impl Arbitrary for Awari {
         fn arbitrary<G: Gen>(g: &mut G) -> Awari {
             let mut b = Awari::new();
 
-            let n = if cfg!(small_board) { g.gen_range(5, 25) }
-                    else { g.gen_range(10, 49) };
+            let n = g.gen_range(0, 5) + 1;
             for i in 1..SIZE {
                 b[i] = g.gen_range(0, n);
             }
@@ -298,17 +310,25 @@ mod tests {
 
     #[quickcheck]
     fn all_succ_in_pred(u: Awari) -> bool {
+        info!("new board:{:?}", u);
         u.successors()
           .into_iter()
-          .all(|(v, k)| k > 0 || v.predecessors().contains(&u))
+          .inspect(|&(v, k)| if k == 0 { info!("new suc:{:?}", v); } )
+          .all(|(v, k)| k > 0 || v.predecessors()
+                                   .into_iter()
+                                   .inspect(|&w| info!("pred of suc:{:?}", w) )
+                                   .any(|w| u == w ))
     }
 
     #[quickcheck]
     fn all_pred_in_succ(u: Awari) -> bool {
+        info!("new board:{:?}", u);
         u.predecessors()
           .into_iter()
+          .inspect(|&v| info!("new pred:{:?}", v) )
           .all(|v| v.successors()
                      .into_iter()
+                     .inspect(|&(w, k)| if k == 0 { info!("suc of pred:{:?}", w); } )
                      .any(|(w, _)| u == w))
     }
 }
