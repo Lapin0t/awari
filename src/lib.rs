@@ -17,3 +17,6 @@ extern crate lazy_static;
 pub mod utils;
 pub mod awari;
 pub mod retrograde;
+
+// include constants
+include!(concat!(env!("OUT_DIR"), "/size.rs"));
