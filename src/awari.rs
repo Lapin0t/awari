@@ -3,34 +3,12 @@ use std::iter::Iterator;
 use std::fmt;
 use std::cmp::min;
 
+use super::{PITS,FPITS};
 use utils::{binom,binom_maxinv,divmod};
 
 
-/// usefull globals
-
-#[cfg(small_board)]
-mod globs {
-    pub const N: usize            = 4;
-    pub const SIZE: usize         = 8;
-    pub const MAX_CODE : usize    = 10518299;
-    pub const START_SEEDS : usize = 3;
-    pub const MAX_SEEDS: usize    = 24;
-}
-
-#[cfg(not(small_board))]
-mod globs {
-    pub const N: usize            = 6;
-    pub const SIZE: usize         = 12;
-    pub const MAX_CODE : usize    = 1399358844974;
-    pub const START_SEEDS : usize = 3;
-    pub const MAX_SEEDS : usize   = 48;
-}
-
-pub use self::globs::*;
-
-
 #[derive(Copy, Clone, Eq, PartialEq)]
-pub struct Awari([u8; SIZE]);
+pub struct Awari([u8; FPITS]);
 
 
 pub struct Iter {
@@ -42,9 +20,9 @@ pub struct Iter {
 
 // use deref-coercion to provide all array (and slice) goodies on Awari
 impl Deref for Awari {
-    type Target = [u8; SIZE];
+    type Target = [u8; FPITS];
 
-    fn deref(&self) -> &[u8; SIZE] {
+    fn deref(&self) -> &[u8; FPITS] {
         let &Awari(ref v) = self;
         return v;
     }
@@ -52,7 +30,7 @@ impl Deref for Awari {
 
 
 impl DerefMut for Awari {
-    fn deref_mut(&mut self) -> &mut [u8; SIZE] {
+    fn deref_mut(&mut self) -> &mut [u8; FPITS] {
         let &mut Awari(ref mut v) = self;
         return v;
     }
@@ -62,23 +40,23 @@ impl DerefMut for Awari {
 impl fmt::Debug for Awari {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "\n+")?;
-        for _ in 0..N {
+        for _ in 0..PITS {
             write!(f, "--+")?;
         }
         write!(f, "\n|")?;
-        for i in (N..SIZE).rev() {
+        for i in (PITS..FPITS).rev() {
             write!(f, "{:2}|", self[i])?;
         }
         write!(f, "\n+")?;
-        for _ in 0..N {
+        for _ in 0..PITS {
             write!(f, "--+")?;
         }
         write!(f, "\n|")?;
-        for i in 0..N {
+        for i in 0..PITS {
             write!(f, "{:2}|", self[i])?;
         }
         write!(f, "\n+")?;
-        for _ in 0..N {
+        for _ in 0..PITS {
             write!(f, "--+")?;
         }
         return Ok(());
@@ -88,11 +66,11 @@ impl fmt::Debug for Awari {
 
 impl Awari {
     pub fn new() -> Self {
-        Awari([0; SIZE])
+        Awari([0; FPITS])
     }
 
     pub fn iter_config(n: usize) -> Iter {
-        let x = 1 << SIZE - 1;
+        let x = 1 << FPITS - 1;
         return Iter { curr: x - 1,
                       last: (x - 1) << n,
                       big: x << n }
@@ -100,7 +78,7 @@ impl Awari {
 
     pub fn encode(&self) -> usize {
         let (mut g, mut c) = (0, 0);
-        for i in 0..SIZE {
+        for i in 0..FPITS {
             c += 1 + self[i] as usize;
             g += binom(i + 1, c - 1);
         }
@@ -110,12 +88,12 @@ impl Awari {
     pub fn decode(g: usize) -> Self {
         let mut g = g;
         let mut s = Self::new();
-        for i in (0..SIZE).rev() {
+        for i in (0..FPITS).rev() {
             let (x, b) = binom_maxinv(i + 1, g);
             s[i] = x as u8;
             g -= b;
         }
-        for i in (1..SIZE).rev() {
+        for i in (1..FPITS).rev() {
             s[i] = s[i] - s[i-1] - 1;
         }
         return s;
@@ -128,27 +106,27 @@ impl Awari {
         
         let mut v = Vec::new();
         
-        if (N..SIZE).all(|k| cpy[k] == 0) {
+        if (PITS..FPITS).all(|k| cpy[k] == 0) {
             return v;
         }
 
-        let mut cmin = [0; SIZE-1];
-        for i in 0..N {
+        let mut cmin = [0; FPITS-1];
+        for i in 0..PITS {
             //info!("cpy[{}]={}", i, cpy[i]);
             if cpy[i] == 0 {
                 let mut m = cpy[i+1];
                 cmin[0] = m;
-                for r in 1..SIZE-1 {
-                    let x = cpy[(i+r+1) % SIZE];
+                for r in 1..FPITS-1 {
+                    let x = cpy[(i+r+1) % FPITS];
                     if m > x {
                         m = x;
                     }
                     cmin[r] = m;
                 }
-                let last = cmin[SIZE-2]+1;
+                let last = cmin[FPITS-2]+1;
                 //info!("i: {} cmin: {:?}", i, cmin);
-                for r in 0..SIZE-1 {
-                    if ((i+r+1) % SIZE < N) || (cpy[(i+r+1) % SIZE] != 2 && cpy[(i+r+1) % SIZE] != 3) {
+                for r in 0..FPITS-1 {
+                    if ((i+r+1) % FPITS < PITS) || (cpy[(i+r+1) % FPITS] != 2 && cpy[(i+r+1) % FPITS] != 3) {
                         for n in 0..min(cmin[r], last) {
                             let mut s = cpy;
                             //info!("unsowing for i={}, r={}, n={}", i, r+1, n);
@@ -164,7 +142,7 @@ impl Awari {
 
     pub fn successors(&self) -> Vec<(Self, u8)> {
         let mut v = Vec::new();
-        for i in 0..N {
+        for i in 0..PITS {
             if self.valid_sow(i) {
                 let mut s = *self;  // copy
                 let k = s.play(i);
@@ -177,22 +155,22 @@ impl Awari {
     }
 
     fn rotate(&mut self) {
-        for i in 0..N {
-            self.swap(i, i + N);
+        for i in 0..PITS {
+            self.swap(i, i + PITS);
         }
     }
 
     fn valid_sow(&self, i: usize) -> bool {
         let n = self[i];
-        if i >= N || n == 0 {
+        if i >= PITS || n == 0 {
             return false;
         } else {
-            let (q, r) = divmod(n, (SIZE - 1) as u8);
-            let j = (i + r) % SIZE;
+            let (q, r) = divmod(n, (FPITS - 1) as u8);
+            let j = (i + r) % FPITS;
             //info!("q={}, r={}, j={}", q, r, j);
             if j < i { return true; }  // at least one everywhere, no capture
             let mut take = true;
-            for k in (N..SIZE).rev() {
+            for k in (PITS..FPITS).rev() {
                 if k > j {
                     if self[k] + q > 0 { return true; }
                 } else {
@@ -205,36 +183,36 @@ impl Awari {
     }
     
     fn sow(&mut self, i: usize) -> (usize, u8) {
-        debug_assert!(i < N, "pit index out of bounds");
+        debug_assert!(i < PITS, "pit index out of bounds");
         debug_assert!(self[i] > 0, "no seeds in pit");
         let n = self[i];
         self[i] = 0;
-        let (q, r) = divmod(n, (SIZE - 1) as u8);
+        let (q, r) = divmod(n, (FPITS - 1) as u8);
         for j in 1..r+1 {
-            self[(i+j) % SIZE] += q+1;
+            self[(i+j) % FPITS] += q+1;
         }
-        for j in r+1..SIZE {
-            self[(i+j) % SIZE] += q;
+        for j in r+1..FPITS {
+            self[(i+j) % FPITS] += q;
         }
-        return ((i+r) % SIZE, q as u8);
+        return ((i+r) % FPITS, q as u8);
     }
 
     fn unsow(&mut self, i: usize, r: usize, n: u8) {
         for k in 0..r {
-            debug_assert!(self[(i+k+1) % SIZE] >= n + 1);
-            self[(i+k+1) % SIZE] -= n + 1;
+            debug_assert!(self[(i+k+1) % FPITS] >= n + 1);
+            self[(i+k+1) % FPITS] -= n + 1;
         }
-        for k in r..SIZE-1 {
-            debug_assert!(self[(i+k+1) % SIZE] >= n);
-            self[(i+k+1) % SIZE] -= n;
+        for k in r..FPITS-1 {
+            debug_assert!(self[(i+k+1) % FPITS] >= n);
+            self[(i+k+1) % FPITS] -= n;
         }
-        self[i] += ((SIZE - 1) as u8)*n + r as u8;
+        self[i] += ((FPITS - 1) as u8)*n + r as u8;
     }
 
     fn collect(&mut self, i: usize) -> u8 {
         let mut j = i;
         let mut n = 0;
-        while j >= N && (self[j] == 2 || self[j] == 3) {
+        while j >= PITS && (self[j] == 2 || self[j] == 3) {
             n += self[j];
             self[j] = 0;
             j -= 1;
@@ -263,7 +241,7 @@ impl Iterator for Iter {
             let mut x = self.curr | self.big;
             let mut s = Awari::new();
 
-            for i in 0..SIZE {
+            for i in 0..FPITS {
                 let tz = x.trailing_zeros();
                 s[i] = tz as u8;
                 x >>= tz + 1;
@@ -282,22 +260,22 @@ impl Iterator for Iter {
 #[cfg(test)]
 mod tests {
     use quickcheck::{Arbitrary,Gen};
-    use super::{SIZE,MAX_SEEDS,Awari};
+    use super::{FPITS,SEEDS,Awari};
 
     
     impl Arbitrary for Awari {
         fn arbitrary<G: Gen>(g: &mut G) -> Awari {
             let mut b = Awari::new();
 
-            let n = g.gen_range(0, 5) + 1;
-            for i in 1..SIZE {
+            let n = g.gen_range(0, SEEDS) + 1;
+            for i in 1..FPITS {
                 b[i] = g.gen_range(0, n);
             }
             (*b).sort();
-            for i in 0..SIZE-1 {
+            for i in 0..FPITS-1 {
                 b[i] = b[i+1] - b[i];
             }
-            b[SIZE-1] = n - b[SIZE-1];
+            b[FPITS-1] = n - b[FPITS-1];
             return b;
         }
     }

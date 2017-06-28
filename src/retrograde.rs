@@ -2,9 +2,11 @@ use std::cmp::max;
 use std::boxed::{Box,HEAP};
 
 use awari::Awari;
+use super::{NBOARDS,SEEDS};
 
 
-pub type Table = Box<[(i8, u8, bool); 10518300]>;
+
+pub type Table = Box<[(i8, u8, bool); NBOARDS]>;
 
 
 fn propagate(table: &mut Table, u: Awari, score: i8, sat: i8) {
@@ -35,9 +37,9 @@ fn propagate(table: &mut Table, u: Awari, score: i8, sat: i8) {
 
 
 pub fn analysis() -> Table {
-    let mut table = HEAP <- [(-24, 0, false); 10518300];
+    let mut table = HEAP <- [(-(SEEDS as i8), 0, false); NBOARDS];
     table[0] = (0, 0, true);
-    for n in 0..25 {
+    for n in 0..SEEDS+1 {
         println!("seed num {}", n);
 
         // initialization

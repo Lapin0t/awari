@@ -1,11 +1,11 @@
 extern crate awari;
 
-use awari::awari::{Awari,N};
+use awari::{PITS,SEEDS,NBOARDS};
+use awari::awari::Awari;
 use awari::retrograde::analysis;
 
 fn main() {
-    println!("start");
-    println!("N={}", N);
+    println!("PITS={} SEEDS={} NBOARDS={}", PITS, SEEDS, NBOARDS);
     let table = analysis();
     for n in 0..25 {
         println!("configurations with {} seeds", n);
