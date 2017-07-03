@@ -1,5 +1,5 @@
 #![feature(plugin)]
-#![feature(box_syntax)]
+//#![feature(box_syntax)]
 #![feature(placement_in_syntax, box_heap)]
 
 #![cfg_attr(test, plugin(quickcheck_macros))]
@@ -13,10 +13,16 @@ extern crate log;
 #[macro_use]
 extern crate lazy_static;
 
+#[macro_use]
+extern crate serde_derive;
+
+extern crate bincode;
+
 
 pub mod utils;
 pub mod awari;
-pub mod retrograde;
+pub mod ra;
+pub mod models;
 
 // include constants
 include!(concat!(env!("OUT_DIR"), "/size.rs"));
