@@ -1,15 +1,18 @@
 use std::cmp::max;
+use std::option::Option;
 
 use awari::Awari;
 
 
-#[derive(Serialize,Deserialize,Copy,Clone)]
+#[derive(Serialize,Deserialize,Copy,Clone,Debug)]
 pub enum State {
     Stable(i8),
     Unstable(i8, u8),
 }
 
+
 impl State {
+    /// Get the current value of the board. This shouldn't be needed anymore.
     pub fn value(&self) -> i8 {
         match *self {
             State::Stable(s) => s,
@@ -17,56 +20,87 @@ impl State {
         }
     }
 
-    pub fn update(&mut self, up: i8) {
+    /// Update the value of a board using the final value `up` from a successor.
+    /// If it flipped the board to a stable state return the final value of the
+    /// board, else return `None`.
+    pub fn update(&mut self, up: i8, sat_lvl: i8) -> Option<i8> {
+        debug_assert!(sat_lvl >= max(self.value(), -up));
+
         match *self {
             State::Stable(s) => {
-                assert!(s >= up)
+                // nothing to do, just test for consistency
+                debug_assert!(s >= up);
+                return Option::None;
+            },
+            State::Unstable(s, 1) => {
+                let s = max(s, -up);
+                *self = State::Stable(s);
+                return Option::Some(s);
+            },
+            State::Unstable(s, n) if (s == sat_lvl || -up == sat_lvl) => {
+                debug_assert!(n > 0);
+                *self = State::Stable(sat_lvl);
+                return Option::Some(sat_lvl);
             },
             State::Unstable(ref mut s, ref mut n) => {
+                debug_assert!(*n > 0);
                 *n -= 1;
-                if *s < up {
-                    *s = up;
+                if *s < -up {
+                    *s = -up;
                 }
-            }
+                return Option::None;
+            },
         }
     }
 
-    pub fn flip_stable(&mut self, sat_lvl: i8) -> bool {
+    /// If the board has no more successor to wait for, flip it to stable and
+    /// return the final value, else do nothing.
+    pub fn try_stabilize(&mut self) -> Option<i8> {
         match *self {
-            State::Stable(_) => false,
-            State::Unstable(s, n) => {
-                if s == sat_lvl || n == 0 {
-                    *self = State::Stable(s);
-                    true
-                } else { false }
+            State::Unstable(s, 0) => {
+                *self = State::Stable(s);
+                Option::Some(s)
             },
+            _ => Option::None,
         }
     }
 }
 
+
+/// An abstraction over different storage models for the database (RAM, disk,
+/// hybrid, ...).
 pub trait Storage  {
+    /// Create a new storage handle.
     fn new() -> Self;
+
+    /// This hook can be used to implement some specific logic when switching
+    /// to a new iteration of the RA
     fn pre_row_hook(&mut self, usize);
-    fn get(&self, usize) -> State;
+
+    /// Initialize a record; this method should be called before any
+    /// subsequent one on a particular index.
     fn set(&mut self, usize, State);
+
+    /// See `State::update`.
+    fn update(&mut self, usize, i8, i8) -> Option<i8>;
+
+    /// See `State::try_stabilize`.
+    fn try_stabilize(&mut self, usize) -> Option<i8>;
+
+    /// See `State::value`.
+    fn value(&self, usize) -> i8;
 }
 
 
 fn propagate<T: Storage>(table: &mut T, u: Awari, up: i8, sat_lvl: i8) {
     let mut stack = vec![(u, up)];
-    while let Some((u, up)) = stack.pop() {
-        //info!("propagate: table[{}]=({}, {}, {}), score={}, sat={}", id, st.0,
-        //        st.1, st.2, score, sat);
-        let i = u.encode();
-        let mut st = table.get(i);
-        st.update(up);
-        if st.flip_stable(sat_lvl) {
-            let x = st.value();
+    while let Some((u, a)) = stack.pop() {
+        if let Some(b) = table.update(u.encode(), a, sat_lvl) {
+            // if update changed to final value, propagate further
             for v in u.predecessors() {
-                stack.push((v, -x));
+                stack.push((v, b));
             }
         }
-        table.set(i, st);
     }
 }
 
@@ -77,7 +111,7 @@ pub fn analyze<T: Storage>(max_iter: usize) -> T {
     table.set(0, State::Stable(0));
     
     for n in 1..max_iter+1 {
-        println!("seed num {}", n);
+        println!("\n%%%%% seed num {} %%%%%", n);
         table.pre_row_hook(n);
 
         // initialization
@@ -85,7 +119,7 @@ pub fn analyze<T: Storage>(max_iter: usize) -> T {
             let (mut score, mut nsucc) = (-(n as i8), 0);
             for (v, k) in u.successors() {
                 if k > 0 {
-                    score = max(score, k as i8 - table.get(v.encode()).value());
+                    score = max(score, k as i8 - table.value(v.encode()));
                 }
                 nsucc += 1;
             }
@@ -97,13 +131,9 @@ pub fn analyze<T: Storage>(max_iter: usize) -> T {
             info!("iteration {}", l);
             let sat_lvl = (n - l) as i8;
             for u in Awari::iter_config(n) {
-                let i = u.encode();
-                let mut state = table.get(i);
-                if state.flip_stable(sat_lvl) {
-                    let x = state.value();
-                    table.set(i, state);
+                if let Some(x) = table.try_stabilize(u.encode()) {
                     for v in u.predecessors() {
-                        propagate(&mut table, v, -x, sat_lvl);
+                        propagate(&mut table, v, x, sat_lvl);
                     }
                 }
             }
