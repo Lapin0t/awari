@@ -251,9 +251,13 @@ impl Iterator for Iter {
 }
 
 #[cfg(test)]
-mod tests {
-    use quickcheck::{Arbitrary,Gen};
-    use super::{FPITS,SEEDS,Awari};
+pub mod tests {
+    use test::Bencher;
+    use rand::{Rng,thread_rng};
+    use quickcheck::{Arbitrary,Gen,StdGen};
+
+    use {FPITS,SEEDS,NBOARDS};
+    use super::Awari;
 
     
     impl Arbitrary for Awari {
@@ -262,13 +266,13 @@ mod tests {
 
             let n = g.gen_range(0, SEEDS) + 1;
             for i in 1..FPITS {
-                b[i] = g.gen_range(0, n);
+                b[i] = g.gen_range(0, n as u8);
             }
             (*b).sort();
             for i in 0..FPITS-1 {
                 b[i] = b[i+1] - b[i];
             }
-            b[FPITS-1] = n - b[FPITS-1];
+            b[FPITS-1] = n as u8 - b[FPITS-1];
             return b;
         }
     }
@@ -281,25 +285,33 @@ mod tests {
 
     #[quickcheck]
     fn all_succ_in_pred(u: Awari) -> bool {
-        info!("new board:{:?}", u);
         u.successors()
           .into_iter()
-          .inspect(|&(v, k)| if k == 0 { info!("new suc:{:?}", v); } )
           .all(|(v, k)| k > 0 || v.predecessors()
                                    .into_iter()
-                                   .inspect(|&w| info!("pred of suc:{:?}", w) )
                                    .any(|w| u == w ))
     }
 
     #[quickcheck]
     fn all_pred_in_succ(u: Awari) -> bool {
-        info!("new board:{:?}", u);
         u.predecessors()
           .into_iter()
-          .inspect(|&v| info!("new pred:{:?}", v) )
           .all(|v| v.successors()
                      .into_iter()
-                     .inspect(|&(w, k)| if k == 0 { info!("suc of pred:{:?}", w); } )
                      .any(|(w, _)| u == w))
+    }
+
+    #[bench]
+    fn bench_encode(b: &mut Bencher) {
+        let mut gen = StdGen::new(thread_rng(), 100);
+        let board = Awari::arbitrary(&mut gen);
+        b.iter(|| board.encode());
+    }
+
+    #[bench]
+    fn bench_decode(b: &mut Bencher) {
+        let mut rng = thread_rng();
+        let n = rng.gen_range(0, NBOARDS);
+        b.iter(|| Awari::decode(n));
     }
 }

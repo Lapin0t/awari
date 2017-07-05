@@ -1,9 +1,16 @@
-#![feature(plugin, placement_in_syntax, box_heap)]
+#![feature(placement_in_syntax, box_heap)]
 
+#![cfg_attr(test, feature(test, plugin))]
 #![cfg_attr(test, plugin(quickcheck_macros))]
 
 #[cfg(test)]
 extern crate quickcheck;
+
+#[cfg(test)]
+extern crate test;
+
+#[cfg(test)]
+extern crate rand;
 
 #[macro_use]
 extern crate log;
@@ -22,5 +29,5 @@ pub mod awari;
 pub mod ra;
 pub mod models;
 
-// include constants
+// include constants (see `build.rs`)
 include!(concat!(env!("OUT_DIR"), "/size.rs"));

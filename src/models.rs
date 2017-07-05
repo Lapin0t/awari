@@ -4,7 +4,7 @@ use std::io::{Seek,SeekFrom};
 use std::cell::RefCell;
 use std::option::Option;
 
-use bincode::{deserialize_from,serialize_into,Infinite,Bounded};
+use bincode::{deserialize_from,serialize_into,Bounded};
 
 use {NBOARDS,SEEDS};
 use ra::{State,Storage};
