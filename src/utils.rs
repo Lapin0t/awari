@@ -19,12 +19,12 @@ fn binom_slow(k: usize, n: usize) -> usize {
 
 fn mk_tbl() -> [usize; TBL_LEN] {
     let mut tbl = [0; TBL_LEN];
-    for k in 1..FPITS+1 {
+    for k in 0..FPITS {
         tbl[k] = 0;
     }
     for n in 1..FPITS+SEEDS+1 {
-        for k in 1..FPITS+1 {
-            tbl[n*FPITS + k] = binom_slow(k, n);
+        for k in 0..FPITS {
+            tbl[n*FPITS + k] = binom_slow(k+1, n);
         }
     }
     return tbl;
@@ -38,13 +38,13 @@ lazy_static! {
 
 #[inline(always)]
 pub fn binom(k: usize, n: usize) -> usize {
-    BINOM_TBL[n*FPITS + k]
+    BINOM_TBL[n*FPITS + k - 1]
 }
 
 
 pub fn binom_maxinv(k : usize , x: usize ) -> (usize , usize ) {
     debug_assert!(k != 0);
-    let (mut a, mut b) = (k-1, 61);
+    let (mut a, mut b) = (k-1, FPITS+SEEDS+1);
 
     while b - a > 1 {
         let c = (a + b + 1) / 2;
