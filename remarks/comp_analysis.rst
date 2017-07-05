@@ -1,9 +1,17 @@
-Some data
-=========
+===================
+Complexity analysis
+===================
+
+The goal here is to conduct a space and time complexity analysis of the
+retrograde analysis algorithms for 2 player games.
+
+
+Some data on the game of awari
+==============================
 
 Stats are given for each number of seeds on the board. The space is computed as
 the theoretical minimum: N_CONFIGS*log(2*MAX_SEEDS+1, 8) bytes. "(a)" is for
-the subset accessible during normal play and "c" is for cumulative values.
+the subset accessible during normal play and "(c)" is for cumulative values.
 
 
 8 pits (4-awari)
@@ -94,3 +102,31 @@ the subset accessible during normal play and "c" is for cumulative values.
  46  184509266760  141.8 GiB  685.2 GiB
  47  227692286640  174.9 GiB  860.1 GiB
  48  279871768995  215.0 GiB    1.0 TiB
+
+
+Game model
+==========
+
+We will abstract away the game and suppose we have a description of game states
+and two function ``successors :: State -> Iterator (States, Nat)`` and
+``predecessors :: State -> Iterator States`` with the obvious semantics (the
+``Nat`` in ``successors`` being the reward of a given play). Additionally, we
+are going to restrict ourselves to games where the number of pieces on the
+board increases and require a function ``iter_states :: Nat -> Iterator States``
+iterating on every game state having the specified number of pieces on the
+board.
+
+
+Complexity model
+================
+
+TODO
+
+
+Algorithms
+==========
+
+Saturation
+----------
+
+TODO
