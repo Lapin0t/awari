@@ -252,7 +252,7 @@ impl Iterator for Iter {
 
 #[cfg(test)]
 pub mod tests {
-    use test::Bencher;
+    use test::{black_box,Bencher};
     use rand::{Rng,thread_rng};
     use quickcheck::{Arbitrary,Gen,StdGen};
 
@@ -302,16 +302,37 @@ pub mod tests {
     }
 
     #[bench]
-    fn bench_encode(b: &mut Bencher) {
+    fn bench_encode_100(b: &mut Bencher) {
         let mut gen = StdGen::new(thread_rng(), 100);
         let board = Awari::arbitrary(&mut gen);
-        b.iter(|| board.encode());
+        b.iter(|| { for _ in 0..100 { black_box(board.encode()); } });
     }
 
     #[bench]
-    fn bench_decode(b: &mut Bencher) {
+    fn bench_decode_100(b: &mut Bencher) {
         let mut rng = thread_rng();
         let n = rng.gen_range(0, NBOARDS);
-        b.iter(|| Awari::decode(n));
+        b.iter(|| { for _ in 0..100 { black_box(Awari::decode(n)); } });
+    }
+
+    #[bench]
+    fn bench_successors_100(b: &mut Bencher) {
+        let mut gen = StdGen::new(thread_rng(), 100);
+        let board = Awari::arbitrary(&mut gen);
+        b.iter(|| { for _ in 0..100 { black_box(board.successors()); } });
+    }
+
+    #[bench]
+    fn bench_predecessors_100(b: &mut Bencher) {
+        let mut gen = StdGen::new(thread_rng(), 100);
+        let board = Awari::arbitrary(&mut gen);
+        b.iter(|| { for _ in 0..100 { black_box(board.predecessors()); } });
+    }
+
+    // TODO: this is useless and gets optimized out...
+    #[bench]
+    fn bench_iterconfig_10M(b: &mut Bencher) {
+        let iter = Awari::iter_config(24);
+        b.iter(|| black_box(Awari::iter_config(20).take(10000000).map(black_box)));
     }
 }
