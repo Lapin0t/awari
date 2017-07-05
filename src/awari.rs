@@ -3,7 +3,7 @@ use std::iter::Iterator;
 use std::fmt;
 use std::cmp::min;
 
-use super::{PITS,FPITS};
+use {PITS,FPITS};
 use utils::{binom,binom_maxinv,divmod};
 
 
@@ -102,7 +102,6 @@ impl Awari {
     pub fn predecessors(&self) -> Vec<Self> {
         let mut cpy = *self;
         cpy.rotate();
-        //info!("predecessors: board: {:?}", &cpy);
         
         let mut v = Vec::new();
         
@@ -112,7 +111,6 @@ impl Awari {
 
         let mut cmin = [0; FPITS-1];
         for i in 0..PITS {
-            //info!("cpy[{}]={}", i, cpy[i]);
             if cpy[i] == 0 {
                 let mut m = cpy[i+1];
                 cmin[0] = m;
@@ -124,12 +122,10 @@ impl Awari {
                     cmin[r] = m;
                 }
                 let last = cmin[FPITS-2]+1;
-                //info!("i: {} cmin: {:?}", i, cmin);
                 for r in 0..FPITS-1 {
                     if ((i+r+1) % FPITS < PITS) || (cpy[(i+r+1) % FPITS] != 2 && cpy[(i+r+1) % FPITS] != 3) {
                         for n in 0..min(cmin[r], last) {
                             let mut s = cpy;
-                            //info!("unsowing for i={}, r={}, n={}", i, r+1, n);
                             s.unsow(i, r + 1, n);
                             v.push(s);
                         }
@@ -144,11 +140,9 @@ impl Awari {
         let mut v = Vec::new();
         for i in 0..PITS {
             if self.valid_sow(i) {
-                let mut s = *self;  // copy
+                let mut s = *self;
                 let k = s.play(i);
                 v.push((s, k));
-            } else {
-                //info!("invalid sow: {}", i);
             }
         }
         return v;
@@ -167,7 +161,6 @@ impl Awari {
         } else {
             let (q, r) = divmod(n, (FPITS - 1) as u8);
             let j = (i + r) % FPITS;
-            //info!("q={}, r={}, j={}", q, r, j);
             if j < i { return true; }  // at least one everywhere, no capture
             let mut take = true;
             for k in (PITS..FPITS).rev() {

@@ -1,6 +1,4 @@
-#![feature(plugin)]
-//#![feature(box_syntax)]
-#![feature(placement_in_syntax, box_heap)]
+#![feature(plugin, placement_in_syntax, box_heap)]
 
 #![cfg_attr(test, plugin(quickcheck_macros))]
 

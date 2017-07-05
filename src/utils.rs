@@ -1,4 +1,4 @@
-use super::{FPITS,SEEDS};
+use {FPITS,SEEDS};
 
 
 const TBL_LEN : usize = FPITS*(FPITS + SEEDS + 2);
