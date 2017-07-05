@@ -3,19 +3,13 @@ use std::iter::Iterator;
 use std::fmt;
 use std::cmp::min;
 
-use {PITS,FPITS};
+use {START_SEEDS,PITS,FPITS};
 use utils::{binom,binom_maxinv,divmod};
 
 
+/// Representation of an awari board configuration.
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub struct Awari([u8; FPITS]);
-
-
-pub struct Iter {
-    curr: usize,
-    last: usize,
-    big: usize,
-}
 
 
 // use deref-coercion to provide all array (and slice) goodies on Awari
@@ -65,10 +59,12 @@ impl fmt::Debug for Awari {
 
 
 impl Awari {
+    /// Instanciate the canonical starting board configuration.
     pub fn new() -> Self {
-        Awari([0; FPITS])
+        Awari([START_SEEDS; FPITS])
     }
 
+    /// Iterate on every board configuration with a given number of seeds.
     pub fn iter_config(n: usize) -> Iter {
         let x = 1 << FPITS - 1;
         return Iter { curr: x - 1,
@@ -76,6 +72,7 @@ impl Awari {
                       big: x << n }
     }
 
+    /// Return a compact encoding of an awari board as an integer.
     pub fn encode(&self) -> usize {
         let (mut g, mut c) = (0, 0);
         for i in 0..FPITS {
@@ -85,6 +82,7 @@ impl Awari {
         return g;
     }
 
+    /// Return the `Awari` board represented by the given compact code.
     pub fn decode(g: usize) -> Self {
         let mut g = g;
         let mut s = Self::new();
@@ -99,6 +97,8 @@ impl Awari {
         return s;
     }
 
+    /// Compute every legal predecessor that has the same score (only 0-valued
+    /// back-moves are allowed taken into account).
     pub fn predecessors(&self) -> Vec<Self> {
         let mut cpy = *self;
         cpy.rotate();
@@ -136,6 +136,8 @@ impl Awari {
         return v;
     }
 
+    /// Compute every legal successors configuration of the current
+    /// board together with the reward of the move.
     pub fn successors(&self) -> Vec<(Self, u8)> {
         let mut v = Vec::new();
         for i in 0..PITS {
@@ -220,6 +222,15 @@ impl Awari {
         return k;
     }
     
+}
+
+
+/// Iterator for awari board configurations with a given number of seeds.
+/// This is really fast thanks to bitwise tricks.
+pub struct Iter {
+    curr: usize,
+    last: usize,
+    big: usize,
 }
 
 

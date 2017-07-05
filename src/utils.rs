@@ -36,12 +36,15 @@ lazy_static! {
 }
 
 
-#[inline(always)]
+/// Compute a binomial coefficient (using in-memory precomputed table).
+#[inline]
 pub fn binom(k: usize, n: usize) -> usize {
+    debug_assert!(0 < k && k <= FPITS && n <= FPITS+SEEDS);
     BINOM_TBL[n*FPITS + k - 1]
 }
 
 
+/// Compute the largest ``n`` such that ``\binom{n}{k} <= x``.
 pub fn binom_maxinv(k : usize , x: usize ) -> (usize , usize ) {
     debug_assert!(k != 0);
     let (mut a, mut b) = (k-1, FPITS+SEEDS+1);
@@ -58,6 +61,8 @@ pub fn binom_maxinv(k : usize , x: usize ) -> (usize , usize ) {
 }
 
 
+/// Compute the euclidean division and remainder where the remainder is
+/// in range [1,n].
 pub fn divmod(n: u8, d: u8) -> (u8, usize) {
     ((n - 1) / d, ((n - 1) % d + 1) as usize)
 }

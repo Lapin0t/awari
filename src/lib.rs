@@ -29,5 +29,8 @@ pub mod awari;
 pub mod ra;
 pub mod models;
 
+#[cfg(test)]
+mod disk_bench;
+
 // include constants (see `build.rs`)
 include!(concat!(env!("OUT_DIR"), "/size.rs"));

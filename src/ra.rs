@@ -4,6 +4,8 @@ use std::option::Option;
 use awari::Awari;
 
 
+/// State storing the current computed best score for a given game
+/// configuration.
 #[derive(Serialize,Deserialize,Copy,Clone,Debug)]
 pub enum State {
     Stable(i8),
@@ -92,6 +94,8 @@ pub trait Storage  {
 }
 
 
+/// Update the given state with the final score of one of its successors.
+/// Propagate it recursively whenever it flips the state to a final score.
 fn propagate<T: Storage>(table: &mut T, u: Awari, up: i8, sat_lvl: i8) {
     let mut stack = vec![(u, up)];
     while let Some((u, a)) = stack.pop() {
@@ -105,6 +109,8 @@ fn propagate<T: Storage>(table: &mut T, u: Awari, up: i8, sat_lvl: i8) {
 }
 
 
+/// Construct the optimal score table for up to ``max_iter`` pieces on the
+/// board.
 pub fn analyze<T: Storage>(max_iter: usize) -> T {
     let mut table = T::new();
     table.pre_row_hook(0);

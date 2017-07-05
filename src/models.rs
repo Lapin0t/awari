@@ -10,6 +10,7 @@ use {NBOARDS,SEEDS};
 use ra::{State,Storage};
 
 
+/// Fully in-memory storage model.
 pub struct NaiveRAM(Box<[State; NBOARDS]>);
 
 
@@ -38,6 +39,7 @@ impl Storage for NaiveRAM {
 }
 
 
+/// Fully on-disk storage model.
 pub struct NaiveDisk(RefCell<File>);
 
 
