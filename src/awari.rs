@@ -329,10 +329,9 @@ pub mod tests {
         b.iter(|| { for _ in 0..100 { black_box(board.predecessors()); } });
     }
 
-    // TODO: this is useless and gets optimized out...
     #[bench]
-    fn bench_iterconfig_10M(b: &mut Bencher) {
-        let iter = Awari::iter_config(24);
-        b.iter(|| black_box(Awari::iter_config(20).take(10000000).map(black_box)));
+    fn bench_iterconfig_100(b: &mut Bencher) {
+        let mut iter = Awari::iter_config(24);
+        b.iter(|| { for _ in 0..100 { black_box(iter.next()); } });
     }
 }
