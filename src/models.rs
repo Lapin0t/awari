@@ -10,10 +10,10 @@ use {NBOARDS,SEEDS};
 use ra::{State,Storage};
 
 
-pub struct NaiveRam(Box<[State; NBOARDS]>);
+pub struct NaiveRAM(Box<[State; NBOARDS]>);
 
 
-impl Storage for NaiveRam {
+impl Storage for NaiveRAM {
     fn new() -> Self {
         NaiveRam(HEAP <- [State::Unstable(-(SEEDS as i8), 0); NBOARDS])
     }
@@ -53,28 +53,22 @@ impl NaiveDisk {
 
 impl Storage for NaiveDisk {
     fn new() -> Self {
-        NaiveDisk(RefCell::new(OpenOptions::new()
-          .read(true)
-          .write(true)
-          .create(true)
-          .truncate(true)
-          .open("foobar.db").unwrap()))
-
-        // trick to allocate disk space (write on last bytes)
-        //file.seek(SeekFrom::Start(NaiveDisk::offset(NBOARDS - 1))).unwrap();
-        //serialize_into(&mut file, &State::Stable(0), Infinite).unwrap();
-
-        //return NaiveDisk(RefCell::new(file));
+        NaiveDisk(RefCell::new(
+            OpenOptions::new()
+              .read(true)
+              .write(true)
+              .create(true)
+              .truncate(true)
+              .open("foobar.db").unwrap()
+            ))
     }
 
     fn pre_row_hook(&mut self, _: usize) {}
 
     fn set(&mut self, i: usize, s: State) {
-        //println!("setting board {}", i);
         let mut f = self.0.borrow_mut();
         f.seek(SeekFrom::Start(NaiveDisk::offset(i))).unwrap();
         serialize_into(&mut *f, &s, Bounded(6)).unwrap();
-        //f.flush().unwrap();
     }
 
     fn update(&mut self, i: usize, up: i8, sat_lvl: i8) -> Option<i8> {

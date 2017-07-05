@@ -251,7 +251,7 @@ impl Iterator for Iter {
 }
 
 #[cfg(test)]
-pub mod tests {
+mod tests {
     use test::{black_box,Bencher};
     use rand::{Rng,thread_rng};
     use quickcheck::{Arbitrary,Gen,StdGen};
