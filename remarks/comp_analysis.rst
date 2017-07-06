@@ -45,6 +45,7 @@ the subset accessible during normal play and "(c)" is for cumulative values.
  22  1560780       951020    1.0 MiB    3.9 MiB      2.6 MiB
  23  2035800            0    1.4 MiB    5.3 MiB      2.6 MiB
  24  2629575      1349905    1.8 MiB    7.0 MiB      3.5 MiB
+=== ======== ============ ========== ========== ============
 
 
 12 pits (6-awari)
@@ -102,6 +103,7 @@ the subset accessible during normal play and "(c)" is for cumulative values.
  46  184509266760  141.8 GiB  685.2 GiB
  47  227692286640  174.9 GiB  860.1 GiB
  48  279871768995  215.0 GiB    1.0 TiB
+=== ============= ========== ==========
 
 
 Game model
