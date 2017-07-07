@@ -2,11 +2,10 @@ use std::boxed::{Box,HEAP};
 use std::fs::{File,OpenOptions};
 use std::io::{Seek,SeekFrom};
 use std::cell::RefCell;
-use std::option::Option;
 
 use bincode::{deserialize_from,serialize_into,Bounded};
 
-use {NBOARDS,SEEDS};
+use NBOARDS;
 use ra::State;
 use storage::Backend;
 
@@ -34,7 +33,7 @@ impl Backend<State> for NaiveRAM {
     }
 
     #[inline]
-    fn deref_handle_mut(&mut self, i: &usize) -> &mut State {
+    fn deref_handle_mut(&mut self, i: &mut usize) -> &mut State {
         &mut self.data[*i]
     }
 
@@ -42,48 +41,12 @@ impl Backend<State> for NaiveRAM {
     fn write_back(&mut self, _: &usize) {}
 }
 
-
-/*impl Storage for NaiveRAM {
-    fn new() -> Self {
-        NaiveRam(HEAP <- [State::Unstable(-(SEEDS as i8), 0); NBOARDS])
-    }
-
-    fn pre_row_hook(&mut self, _: usize) {}
-
-    fn update(&mut self, i: usize, up: i8, sat_lvl: i8) -> Option<i8> {
-        self.0[i].update(up, sat_lvl)
-    }
-
-    fn value(&self, i: usize) -> i8 {
-        self.0[i].value()
-    }
-
-    fn try_stabilize(&mut self, i: usize) -> Option<i8> {
-        self.0[i].try_stabilize()
-    }
-
-    fn set(&mut self, i: usize, s: State) {
-        self.0[i] = s;
-    }
-}
-
-
 /// Fully on-disk storage model.
 pub struct NaiveDisk(RefCell<File>);
 
 
-impl NaiveDisk {
-    fn offset(i: usize) -> u64 { 6 * i as u64 }
-
-    fn get(&self, i: usize) -> State {
-        let mut f = self.0.borrow_mut();
-        f.seek(SeekFrom::Start(NaiveDisk::offset(i))).unwrap();
-        return deserialize_from(&mut *f, Bounded(6)).unwrap();
-    }
-}
-
-impl Storage for NaiveDisk {
-    fn new() -> Self {
+impl Default for NaiveDisk {
+    fn default() -> Self {
         NaiveDisk(RefCell::new(
             OpenOptions::new()
               .read(true)
@@ -93,30 +56,27 @@ impl Storage for NaiveDisk {
               .open("foobar.db").unwrap()
             ))
     }
+}
 
-    fn pre_row_hook(&mut self, _: usize) {}
+impl Backend<State> for NaiveDisk {
+    type Handle = (State, usize);
 
-    fn set(&mut self, i: usize, s: State) {
+    fn get_handle(&self, i: usize) -> Self::Handle {
         let mut f = self.0.borrow_mut();
-        f.seek(SeekFrom::Start(NaiveDisk::offset(i))).unwrap();
-        serialize_into(&mut *f, &s, Bounded(6)).unwrap();
+        f.seek(SeekFrom::Start(6 * i as u64)).unwrap();
+        return (deserialize_from(&mut *f, Bounded(6))
+                  .unwrap_or(Default::default()), i);
     }
 
-    fn update(&mut self, i: usize, up: i8, sat_lvl: i8) -> Option<i8> {
-        let mut s = self.get(i);
-        let r = s.update(up, sat_lvl);
-        self.set(i, s);
-        return r;
-    }
+    #[inline]
+    fn deref_handle<'a>(&'a self, h: &'a Self::Handle) -> &'a State { &h.0 }
 
-    fn try_stabilize(&mut self, i: usize) -> Option<i8> {
-        let mut s = self.get(i);
-        let r = s.try_stabilize();
-        self.set(i, s);
-        return r;
-    }
+    #[inline]
+    fn deref_handle_mut<'a>(&'a mut self, h: &'a mut Self::Handle) -> &'a mut State { &mut h.0 }
 
-    fn value(&self, i: usize) -> i8 {
-        self.get(i).value()
+    fn write_back(&mut self, s: &Self::Handle) {
+        let mut f = self.0.borrow_mut();
+        f.seek(SeekFrom::Start(6 * s.1 as u64)).unwrap();
+        serialize_into(&mut *f, &s.0, Bounded(6)).unwrap();
     }
-}*/
+}

@@ -7,8 +7,8 @@ pub trait Backend<T>: Default {
     type Handle;
 
     fn get_handle(&self, usize) -> Self::Handle;
-    fn deref_handle(&self, &Self::Handle) -> &T;
-    fn deref_handle_mut(&mut self, &Self::Handle) -> &mut T;
+    fn deref_handle<'a>(&'a self, &'a Self::Handle) -> &'a T;
+    fn deref_handle_mut<'a>(&'a mut self, &'a mut Self::Handle) -> &'a mut T;
     fn write_back(&mut self, &Self::Handle);
 }
 
@@ -71,7 +71,7 @@ impl<'a, T, B: 'a + Backend<T>> Deref for RefMut<'a, T, B> {
 impl<'a, T, B: 'a + Backend<T>> DerefMut for RefMut<'a, T, B> {
     #[inline]
     fn deref_mut(&mut self) -> &mut T {
-        self.owner.deref_handle_mut(&self.handle)
+        self.owner.deref_handle_mut(&mut self.handle)
     }
 }
 
