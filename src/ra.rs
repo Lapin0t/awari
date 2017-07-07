@@ -63,9 +63,9 @@ impl State {
     /// If the board has no more successor to wait for, flip it to stable and
     /// return the final value, else do nothing.
     #[inline]
-    pub fn try_stabilize(&mut self) -> Option<i8> {
+    pub fn try_stabilize(&mut self, sat_lvl: i8) -> Option<i8> {
         match *self {
-            State::Unstable(s, 0) => {
+            State::Unstable(s, n) if s == sat_lvl || n == 0 => {
                 *self = State::Stable(s);
                 Option::Some(s)
             },
@@ -123,8 +123,9 @@ pub fn analyze<B: Backend<State>>(max_iter: usize) -> Storage<State, B> {
             info!("iteration {}", l);
             let sat_lvl = (n - l) as i8;
             for u in Awari::iter_config(n) {
-                let stab = table.index_mut(u.encode()).try_stabilize();
-                if let Some(x) = stab {
+                // yup, temporary lifetimes have struck again..
+                if let Some(x) = { let ref mut tmp = table.index_mut(u.encode());
+                                   tmp.try_stabilize(sat_lvl) } {
                     for v in u.predecessors() {
                         propagate(&mut table, v, x, sat_lvl);
                     }
