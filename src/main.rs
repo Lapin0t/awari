@@ -5,7 +5,7 @@ extern crate awari;
 
 use awari::{PITS,SEEDS,NBOARDS};
 use awari::awari::Awari;
-use awari::ra::{analyze,Storage};
+use awari::ra::analyze;
 use awari::models;
 
 
@@ -14,15 +14,15 @@ fn main() {
 
     let upto = match env::args().nth(1) {
         Option::Some(n) => n.parse::<usize>().unwrap(),
-        Option::None => SEEDS
+        Option::None => SEEDS,
     };
 
-    let table = analyze::<models::NaiveDisk>(upto);
-    for n in 0..upto+1 {
+    let table = analyze::<models::NaiveRAM>(upto);
+    for n in 0..10 {
         println!("configurations with {} seeds", n);
         for u in Awari::iter_config(n) {
             let id = u.encode();
-            println!("{:10}: {}", id, table.value(id));
+            println!("{:10}: {}", id, table.index(id).value());
         }
     }
 }

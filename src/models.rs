@@ -7,14 +7,43 @@ use std::option::Option;
 use bincode::{deserialize_from,serialize_into,Bounded};
 
 use {NBOARDS,SEEDS};
-use ra::{State,Storage};
+use ra::State;
+use storage::Backend;
 
 
 /// Fully in-memory storage model.
-pub struct NaiveRAM(Box<[State; NBOARDS]>);
+pub struct NaiveRAM { data: Box<[State; NBOARDS]> }
 
 
-impl Storage for NaiveRAM {
+impl Default for NaiveRAM {
+    fn default() -> Self {
+        NaiveRAM { data: HEAP <- [Default::default(); NBOARDS] }
+    }
+}
+
+
+impl Backend<State> for NaiveRAM {
+    type Handle = usize;
+
+    #[inline]
+    fn get_handle(&self, i: usize) -> usize { i }
+
+    #[inline]
+    fn deref_handle(&self, i: &usize) -> &State {
+        &self.data[*i]
+    }
+
+    #[inline]
+    fn deref_handle_mut(&mut self, i: &usize) -> &mut State {
+        &mut self.data[*i]
+    }
+
+    #[inline]
+    fn write_back(&mut self, _: &usize) {}
+}
+
+
+/*impl Storage for NaiveRAM {
     fn new() -> Self {
         NaiveRam(HEAP <- [State::Unstable(-(SEEDS as i8), 0); NBOARDS])
     }
@@ -90,4 +119,4 @@ impl Storage for NaiveDisk {
     fn value(&self, i: usize) -> i8 {
         self.get(i).value()
     }
-}
+}*/

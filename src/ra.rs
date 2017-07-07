@@ -1,7 +1,10 @@
 use std::cmp::max;
 use std::option::Option;
+use std::default::Default;
 
+use SEEDS;
 use awari::Awari;
+use storage::{Backend,Storage};
 
 
 /// State storing the current computed best score for a given game
@@ -15,6 +18,7 @@ pub enum State {
 
 impl State {
     /// Get the current value of the board. This shouldn't be needed anymore.
+    #[inline]
     pub fn value(&self) -> i8 {
         match *self {
             State::Stable(s) => s,
@@ -25,6 +29,7 @@ impl State {
     /// Update the value of a board using the final value `up` from a successor.
     /// If it flipped the board to a stable state return the final value of the
     /// board, else return `None`.
+    #[inline]
     pub fn update(&mut self, up: i8, sat_lvl: i8) -> Option<i8> {
         debug_assert!(sat_lvl >= max(self.value(), -up));
 
@@ -57,6 +62,7 @@ impl State {
 
     /// If the board has no more successor to wait for, flip it to stable and
     /// return the final value, else do nothing.
+    #[inline]
     pub fn try_stabilize(&mut self) -> Option<i8> {
         match *self {
             State::Unstable(s, 0) => {
@@ -68,38 +74,18 @@ impl State {
     }
 }
 
-
-/// An abstraction over different storage models for the database (RAM, disk,
-/// hybrid, ...).
-pub trait Storage  {
-    /// Create a new storage handle.
-    fn new() -> Self;
-
-    /// This hook can be used to implement some specific logic when switching
-    /// to a new iteration of the RA
-    fn pre_row_hook(&mut self, usize);
-
-    /// Initialize a record; this method should be called before any
-    /// subsequent one on a particular index.
-    fn set(&mut self, usize, State);
-
-    /// See `State::update`.
-    fn update(&mut self, usize, i8, i8) -> Option<i8>;
-
-    /// See `State::try_stabilize`.
-    fn try_stabilize(&mut self, usize) -> Option<i8>;
-
-    /// See `State::value`.
-    fn value(&self, usize) -> i8;
+impl Default for State {
+    fn default() -> Self { State::Unstable(-(SEEDS as i8), 0) }
 }
 
 
 /// Update the given state with the final score of one of its successors.
 /// Propagate it recursively whenever it flips the state to a final score.
-fn propagate<T: Storage>(table: &mut T, u: Awari, up: i8, sat_lvl: i8) {
+fn propagate<B: Backend<State>>(table: &mut Storage<State, B>, u: Awari,
+                                up: i8, sat_lvl: i8) {
     let mut stack = vec![(u, up)];
     while let Some((u, a)) = stack.pop() {
-        if let Some(b) = table.update(u.encode(), a, sat_lvl) {
+        if let Some(b) = table.index_mut(u.encode()).update(a, sat_lvl) {
             // if update changed to final value, propagate further
             for v in u.predecessors() {
                 stack.push((v, b));
@@ -111,25 +97,25 @@ fn propagate<T: Storage>(table: &mut T, u: Awari, up: i8, sat_lvl: i8) {
 
 /// Construct the optimal score table for up to ``max_iter`` pieces on the
 /// board.
-pub fn analyze<T: Storage>(max_iter: usize) -> T {
-    let mut table = T::new();
-    table.pre_row_hook(0);
-    table.set(0, State::Stable(0));
+pub fn analyze<B: Backend<State>>(max_iter: usize) -> Storage<State, B> {
+    let mut table: Storage<State, B> = Default::default();
+    //table.pre_row_hook(0);
+    *table.index_mut(0) = State::Stable(0);
     
     for n in 1..max_iter+1 {
         println!("\n%%%%% seed num {} %%%%%", n);
-        table.pre_row_hook(n);
+        //table.pre_row_hook(n);
 
         // initialization
         for u in Awari::iter_config(n) {
             let (mut score, mut nsucc) = (-(n as i8), 0);
             for (v, k) in u.successors() {
                 if k > 0 {
-                    score = max(score, k as i8 - table.value(v.encode()));
+                    score = max(score, k as i8 - table.index(v.encode()).value());
                 }
                 nsucc += 1;
             }
-            table.set(u.encode(), State::Unstable(score, nsucc));
+            *table.index_mut(u.encode()) = State::Unstable(score, nsucc);
         }
 
         // convergence
@@ -137,7 +123,8 @@ pub fn analyze<T: Storage>(max_iter: usize) -> T {
             info!("iteration {}", l);
             let sat_lvl = (n - l) as i8;
             for u in Awari::iter_config(n) {
-                if let Some(x) = table.try_stabilize(u.encode()) {
+                let stab = table.index_mut(u.encode()).try_stabilize();
+                if let Some(x) = stab {
                     for v in u.predecessors() {
                         propagate(&mut table, v, x, sat_lvl);
                     }
@@ -145,6 +132,6 @@ pub fn analyze<T: Storage>(max_iter: usize) -> T {
             }
         }
     }
-    
+
     return table;
 }

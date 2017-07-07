@@ -27,6 +27,7 @@ extern crate bincode;
 pub mod utils;
 pub mod awari;
 pub mod ra;
+pub mod storage;
 pub mod models;
 
 #[cfg(test)]
