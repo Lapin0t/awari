@@ -284,17 +284,18 @@ mod tests {
     
     impl Arbitrary for Awari {
         fn arbitrary<G: Gen>(g: &mut G) -> Awari {
-            let mut b = Awari::new();
+            let mut b: Awari = Default::default();
 
-            let n = g.gen_range(0, SEEDS) + 1;
+            b[0] = 0;
+            let n = g.gen_range(0, SEEDS as u8) + 1;
             for i in 1..FPITS {
-                b[i] = g.gen_range(0, n as u8);
+                b[i] = g.gen_range(0, n);
             }
-            (*b).sort();
+            b.sort();
             for i in 0..FPITS-1 {
                 b[i] = b[i+1] - b[i];
             }
-            b[FPITS-1] = n as u8 - b[FPITS-1];
+            b[FPITS-1] = n - b[FPITS-1];
             return b;
         }
     }
