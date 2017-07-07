@@ -16,6 +16,7 @@ pub struct Awari([u8; FPITS]);
 impl Deref for Awari {
     type Target = [u8; FPITS];
 
+    #[inline]
     fn deref(&self) -> &[u8; FPITS] {
         let &Awari(ref v) = self;
         return v;
@@ -24,6 +25,7 @@ impl Deref for Awari {
 
 
 impl DerefMut for Awari {
+    #[inline]
     fn deref_mut(&mut self) -> &mut [u8; FPITS] {
         let &mut Awari(ref mut v) = self;
         return v;
@@ -58,12 +60,15 @@ impl fmt::Debug for Awari {
 }
 
 
-impl Awari {
+impl Default for Awari {
     /// Instanciate the canonical starting board configuration.
-    pub fn new() -> Self {
-        Awari([START_SEEDS; FPITS])
+    fn default() -> Self {
+        Awari([START_SEEDS as u8; FPITS])
     }
+}
 
+
+impl Awari {
     /// Iterate on every board configuration with a given number of seeds.
     pub fn iter_config(n: usize) -> Iter {
         let x = 1 << FPITS - 1;
@@ -73,6 +78,7 @@ impl Awari {
     }
 
     /// Return a compact encoding of an awari board as an integer.
+    #[inline]
     pub fn encode(&self) -> usize {
         let (mut g, mut c) = (0, 0);
         for i in 0..FPITS {
@@ -83,9 +89,10 @@ impl Awari {
     }
 
     /// Return the `Awari` board represented by the given compact code.
+    #[inline]
     pub fn decode(g: usize) -> Self {
         let mut g = g;
-        let mut s = Self::new();
+        let mut s: Awari = Default::default();
         for i in (0..FPITS).rev() {
             let (x, b) = binom_maxinv(i + 1, g);
             s[i] = x as u8;
@@ -104,7 +111,7 @@ impl Awari {
         cpy.rotate();
         
         let mut v = Vec::new();
-        
+
         if (PITS..FPITS).all(|k| cpy[k] == 0) {
             return v;
         }
@@ -138,6 +145,7 @@ impl Awari {
 
     /// Compute every legal successors configuration of the current
     /// board together with the reward of the move.
+    #[inline]
     pub fn successors(&self) -> Vec<(Self, u8)> {
         let mut v = Vec::new();
         for i in 0..PITS {
@@ -150,6 +158,7 @@ impl Awari {
         return v;
     }
 
+    #[inline]
     fn rotate(&mut self) {
         for i in 0..PITS {
             self.swap(i, i + PITS);
@@ -192,6 +201,7 @@ impl Awari {
         return ((i+r) % FPITS, q as u8);
     }
 
+    #[inline]
     fn unsow(&mut self, i: usize, r: usize, n: u8) {
         for k in 0..r {
             debug_assert!(self[(i+k+1) % FPITS] >= n + 1);
@@ -237,13 +247,14 @@ pub struct Iter {
 impl Iterator for Iter {
     type Item = Awari;
 
+    #[inline]
     fn next(&mut self) -> Option<Awari> {
         if self.curr > self.last {
             return None;
         } else {
             // extract the board
             let mut x = self.curr | self.big;
-            let mut s = Awari::new();
+            let mut s: Awari = Default::default();
 
             for i in 0..FPITS {
                 let tz = x.trailing_zeros();
