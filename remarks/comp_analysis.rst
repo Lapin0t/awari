@@ -118,6 +118,14 @@ board increases and require a function ``iter_states :: Nat -> Iterator States``
 iterating on every game state having the specified number of pieces on the
 board.
 
+Score optimal
+-------------
+
+Le score optimal d'une configuration est le maximum que l'on peut espérer
+atteindre même si l'adversaire joue de manière parfaite. On a donc score(u) =
+-n si u est terminale à n graines et score(u) = max(k - score(v) for (k, v) in
+successors(u)) sinon.
+
 
 Complexity model
 ================
@@ -125,10 +133,79 @@ Complexity model
 TODO
 
 
-Algorithms
+Algorithme
 ==========
 
-Saturation
+Présentation
+------------
+
+Pseudo-code:
+
+.. code:: python
+
+   def analysis():
+       table[0] = 0
+       for n in range(1, max_iter+1):
+           init_row(table, n)
+           for i in range(n+1):
+               sat = n - i
+               for u in iter_states(n):
+                   match table[u] with:
+                       Stable(_): pass
+                       Instable(x, s) if x == sat or s == 0:
+                           table[u] = Stable(x)
+                           for v in predecessors(u):
+                               propagate(table, v, x, sat)
+       return table
+
+   def init_row(table, n):
+       for u in iter_states(n):
+           x, s = -n, 0
+           for (v, k) in successors(u):
+               s += 1
+               if k > 0:
+                   x = max(x, k - table[v])
+           table[u] = Instable(x, s)
+
+    def propagate(table, u, y, sat):
+        match table[u] with:
+            Stable(_): pass
+            Instable(x, s) if x == sat or -y == sat or s == 0:
+                x = max(x, -y)
+                table[u] = Stable(x)
+                for v in predecessors(u):
+                    propagate(table, v, x, sat)
+            Instable(x, s):
+                x = max(x, -y)
+                s -= 1
+
+
+Complexité en temps
+-------------------
+
+On suppose qu'il existe K tel que #successors(u) <= KS et #predecessors(u) <=
+KP (pour l'awalé, KS=6, KP=12). On notera f(n)=#iter_states(n) (pour l'awalé,
+f(n)=binom(11+n, 11)).
+
+On commence par remarquer que le cout d'un appel à propagate est proportionnel
+au nombre d'appels récursifs déclenchés. Ce nombre est 0 si la configuration
+est stable. De plus, après au plus KS appels à propagate(.., u, ..), u devient
+stable. Ansi on peut borner la complexité de l'analyse en considérant le cout
+de l'appel à propagate comme 1 et en ajoutant KS*N_CONFIG au total.
+
+Majorons le cout de l'itération n. L'initialisation coute f(n). On itère n+1
+fois sur toutes les configurations, si la configuration est stable, le cout
+vaut 1 et sinon, le cout vaut KP et la configuration est marquée comme stable.
+Le cout de l'itération est donc (KP+n+1)*f(n) + KS*f(n).
+
+Le cout total est sum((KS+KP+n)*f(n) for n in range(1, max_iter+1)).
+
+
+Correction
 ----------
 
-TODO
+Théorème de correction: pour toute configuration u, table[u] = score(u).
+
+On peut prouver la correction de la construction de la table par récurrence sur
+n. L'initialisation est triviale. Soit n >= 1, on suppose que la table est bien
+construite pour i dans [0, n) et on l'itération n
