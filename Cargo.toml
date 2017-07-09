@@ -19,3 +19,4 @@ quickcheck_macros = "^0.4"
 
 [profile.release]
 debug = true
+lto = true
