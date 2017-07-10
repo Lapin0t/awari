@@ -145,7 +145,7 @@ Pseudo-code:
 
    def analysis():
        table[0] = 0
-       for n in range(1, max_iter+1):
+       for n in range(1, M+1):
            init_row(table, n)
            for i in range(n+1):
                sat = n - i
@@ -183,22 +183,64 @@ Pseudo-code:
 Complexité en temps
 -------------------
 
-On suppose qu'il existe K tel que #successors(u) <= KS et #predecessors(u) <=
-KP (pour l'awalé, KS=6, KP=12). On notera f(n)=#iter_states(n) (pour l'awalé,
-f(n)=binom(11+n, 11)).
+Les opérations nous intéressant ici sont les accès à la table principale. On
+essaye donc de compter leur nombre précisément. On peut cependant également
+montrer que la complexitée est équivalente lorsque l'on compte également les
+opérations classiques (instructions CPU).
 
-On commence par remarquer que le cout d'un appel à propagate est proportionnel
-au nombre d'appels récursifs déclenchés. Ce nombre est 0 si la configuration
-est stable. De plus, après au plus KS appels à propagate(.., u, ..), u devient
-stable. Ansi on peut borner la complexité de l'analyse en considérant le cout
-de l'appel à propagate comme 1 et en ajoutant KS*N_CONFIG au total.
+On suppose qu'il existe K tel que #successors(u) <= K et
+#predecessors(u) <= K (pour l'awalé, K=12). De plus on notera
+f(n)=#iter_states(n) (pour l'awalé, f(n)=binom(11+n, 11)).
 
-Majorons le cout de l'itération n. L'initialisation coute f(n). On itère n+1
-fois sur toutes les configurations, si la configuration est stable, le cout
-vaut 1 et sinon, le cout vaut KP et la configuration est marquée comme stable.
-Le cout de l'itération est donc (KP+n+1)*f(n) + KS*f(n).
 
-Le cout total est sum((KS+KP+n)*f(n) for n in range(1, max_iter+1)).
+Coût de l'itération n
+^^^^^^^^^^^^^^^^^^^^^
+
+L'initialisation coûte f(n) + X où X est le nombre de coups donnant un gain non
+nul pour les configurations à n graines. On majore X par K*f(n). Il s'agit
+d'une borne assez large car on suppose que chaque configuration a K
+successeurs, tous étant des coups à gain. Pour l'awalé, quelque chose de plus
+raisonnable expérimentalement (voir src/bin/stats.rs) serait probablement f(n)
+mais il est probablement impossible de montrer que c'est une majoration (sans
+les compter une par une).
+
+On remarque que le coût d'un appel à propagate est égal au nombre d'appels
+récursifs déclenchés (plus 1 pour l'appel initial). Ce nombre est 0 si la
+configuration n'est pas instable et dans les conditions de devenir stable. De
+plus, après au plus K appels à propagate(.., u, ..), u devient stable. Comme on
+appelle probablement beaucoup plus que K fois propagate sur chaque
+configuration, on peut considérer que chaque appel coûte 1 et ajouter le coup
+fixe K*f(n) au total de l'itération.
+
+Pour la stabilisation, chacune des n+1 étapes (=boucle sur i) itère sur toutes
+les configurations. L'opération effectuée coûte K+1 si la configuration est
+dans la condition de devenir stable et 1 sinon. Ainsi sur pour une
+configuration donnée, sur toutes les étapes de la stabilisation, au plus une
+coute K+1 soit un coût de K + 1 + n.
+
+Le coût total de l'itération en prenant en compte le cout de propagate suivant
+l'argument donnée précédemment est donc (2*K + 1 + n)*f(n).
+
+On peut affiner ce résultat de beaucoup en séparant les configurations à n
+graines en l'ensemble de taille A (resp B) des configuration qui on été
+"stabilisée" par propagate (resp une itération de stabilisation). On obtient
+alors une complexité de K*A + (n+1)*A + (K + 1)*B + n*B
+                         ^         ^        ^        ^
+                  sur-cout         |    sur-cout     |
+                  propagate        |    itération    |
+                               itération          itération
+                               simple             simple
+
+Soit de manière simplifiée: (K + n + 1)*(A + B) = (K + n + 1)*f(n).
+
+Au final on obtient le nombre d'accès mémoire: (K + n + 2)*f(n) + X
+
+Quelques chiffres
+^^^^^^^^^^^^^^^^^
+
+Le coût total est sum((KS+KP+n)*f(n); n=1...M) soit O(M^(2*k)) pour le k-awalé.
+
+Plus précisément, en évaluant la majoration précisement
 
 
 Correction
@@ -208,4 +250,4 @@ Théorème de correction: pour toute configuration u, table[u] = score(u).
 
 On peut prouver la correction de la construction de la table par récurrence sur
 n. L'initialisation est triviale. Soit n >= 1, on suppose que la table est bien
-construite pour i dans [0, n) et on l'itération n
+construite pour i dans [0, n) et on analyse l'itération n.
