@@ -1,6 +1,7 @@
 #![feature(placement_in_syntax,box_heap)]
 
 use std::boxed::{Box,HEAP};
+use std::default::Default;
 
 extern crate awari;
 
@@ -24,7 +25,7 @@ fn explore(start: Awari) -> Box<[bool; NBOARDS]> {
 
 fn main() {
     println!("blabla");
-    let mut start = Awari::new();
+    let mut start: Awari = Default::default();
     for i in 0..FPITS {
         start[i] = START_SEEDS as u8;
     }
