@@ -238,10 +238,63 @@ Au final on obtient le nombre d'accès mémoire: (K + n + 2)*f(n) + X
 Quelques chiffres
 ^^^^^^^^^^^^^^^^^
 
-Le coût total est sum((KS+KP+n)*f(n); n=1...M) soit O(M^(2*k)) pour le k-awalé.
+On donne ici les chiffres de quelques instanciations concrêtes de l'équation
+ci-dessus. On utilisera précisément la formule suivante pour le calcul du coût
+d'une itération (on a donc choisi X=f(n)): cost(n) = (14+n)*binom(11+n, 11).
 
-Plus précisément, en évaluant la majoration précisement
-
+=== ==========
+  n       cost
+=== ==========
+  0  1.400e+01
+  1  1.800e+02
+  2  1.248e+03
+  3  6.188e+03
+  4  2.457e+04
+  5  8.299e+04
+  6  2.475e+05
+  7  6.683e+05
+  8  1.663e+06
+  9  3.863e+06
+ 10  8.465e+06
+ 11  1.764e+07
+ 12  3.515e+07
+ 13  6.740e+07
+ 14  1.248e+08
+ 15  2.241e+08
+ 16  3.911e+08
+ 17  6.657e+08
+ 18  1.107e+09
+ 19  1.803e+09
+ 20  2.879e+09
+ 21  4.516e+09
+ 22  6.967e+09
+ 23  1.059e+10
+ 24  1.585e+10
+ 25  2.343e+10
+ 26  3.420e+10
+ 27  4.934e+10
+ 28  7.039e+10
+ 29  9.941e+10
+ 30  1.390e+11
+ 31  1.926e+11
+ 32  2.646e+11
+ 33  3.605e+11
+ 34  4.872e+11
+ 35  6.537e+11
+ 36  8.709e+11
+ 37  1.152e+12
+ 38  1.515e+12
+ 39  1.980e+12
+ 40  2.572e+12
+ 41  3.322e+12
+ 42  4.269e+12
+ 43  5.456e+12
+ 44  6.940e+12
+ 45  8.785e+12
+ 46  1.107e+13
+ 47  1.389e+13
+ 48  1.735e+13
+=== ==========
 
 Correction
 ----------
