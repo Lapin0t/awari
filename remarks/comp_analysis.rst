@@ -224,7 +224,7 @@ l'argument donnée précédemment est donc (2*K + 1 + n)*f(n).
 On peut affiner ce résultat de beaucoup en séparant les configurations à n
 graines en l'ensemble de taille A (resp B) des configuration qui on été
 "stabilisée" par propagate (resp une itération de stabilisation). On obtient
-alors une complexité de:
+alors une complexité de::
 
             K*A + (n+1)*A + (K + 1)*B + n*B
              ^         ^        ^        ^
