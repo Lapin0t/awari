@@ -8,10 +8,10 @@ build = "build.rs"
 [dependencies]
 log = "0.3"
 lazy_static = "0.2"
+rand = "0.3"
 tempfile = "2.1.5"
 
 [dev-dependencies]
-rand = "0.3"
 quickcheck = "^0.4"
 quickcheck_macros = "^0.4"
 
