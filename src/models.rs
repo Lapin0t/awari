@@ -1,9 +1,10 @@
 use std::boxed::{Box,HEAP};
-use std::fs::{File,OpenOptions};
-use std::io::{Seek,SeekFrom};
+use std::fs::File;
+use std::io::{Seek,SeekFrom,Read,Write};
 use std::cell::RefCell;
+use std::mem;
 
-use bincode::{deserialize_from,serialize_into,Bounded};
+use tempfile::tempfile;
 
 use NBOARDS;
 use ra::State;
@@ -47,14 +48,15 @@ pub struct NaiveDisk(RefCell<File>);
 
 impl Default for NaiveDisk {
     fn default() -> Self {
-        NaiveDisk(RefCell::new(
+        NaiveDisk(RefCell::new(tempfile().expect("couldn't create temporary file")))
+        /*NaiveDisk(RefCell::new(
             OpenOptions::new()
               .read(true)
               .write(true)
               .create(true)
               .truncate(true)
               .open("foobar.db").unwrap()
-            ))
+            ))*/
     }
 }
 
@@ -63,9 +65,19 @@ impl Backend<State> for NaiveDisk {
 
     fn get_handle(&self, i: usize) -> Self::Handle {
         let mut f = self.0.borrow_mut();
-        f.seek(SeekFrom::Start(6 * i as u64)).unwrap();
-        return (deserialize_from(&mut *f, Bounded(6))
-                  .unwrap_or(Default::default()), i);
+        f.seek(SeekFrom::Start(2 * i as u64)).unwrap();
+
+        let mut buf = [0; 2];
+        f.read(&mut buf).unwrap();
+
+        // poor man's serialization
+        let val: i8 = unsafe { mem::transmute(buf[0]) };
+
+        if buf[1] & 1 == 1 {
+            return (State::Stable(val), i);
+        } else {
+            return (State::Unstable(val, buf[1] >> 1), i);
+        }
     }
 
     #[inline]
@@ -76,7 +88,13 @@ impl Backend<State> for NaiveDisk {
 
     fn write_back(&mut self, s: &Self::Handle) {
         let mut f = self.0.borrow_mut();
-        f.seek(SeekFrom::Start(6 * s.1 as u64)).unwrap();
-        serialize_into(&mut *f, &s.0, Bounded(6)).unwrap();
+        f.seek(SeekFrom::Start(2 * s.1 as u64)).unwrap();
+
+        match s.0 {
+            State::Stable(v) =>
+                f.write(&[unsafe { mem::transmute(v) }, 1]).unwrap(),
+            State::Unstable(v, n) =>
+                f.write(&[unsafe { mem::transmute(v) }, n << 1]).unwrap(),
+        };
     }
 }

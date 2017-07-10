@@ -9,7 +9,7 @@ use storage::{Backend,Storage};
 
 /// State storing the current computed best score for a given game
 /// configuration.
-#[derive(Serialize,Deserialize,Copy,Clone,Debug)]
+#[derive(Copy,Clone,Debug)]
 pub enum State {
     Stable(i8),
     Unstable(i8, u8),
