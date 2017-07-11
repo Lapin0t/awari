@@ -82,14 +82,3 @@ impl<'a, T, B: 'a + Backend<T>> Drop for RefMut<'a, T, B> {
         self.owner.write_back(&self.handle)
     }
 }
-
-
-/*struct NaiveRAM<T> { data: [T; 10] }
-
-impl<T> Backend<T> for NaiveRAM<T> {
-    type Handle = usize;
-    fn get_handle(&self, i: usize) -> usize { i }
-    fn deref_handle(&self, i: &usize) -> &T { &self.data[*i] }
-    fn deref_handle_mut(&mut self, i: &usize) -> &mut T { &mut self.data[*i] }
-    fn write_back(&mut self, _: &usize) {}
-}*/
