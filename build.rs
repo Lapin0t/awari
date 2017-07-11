@@ -21,12 +21,12 @@ fn main() {
     println!("cargo:rerun-if-env-changed=AWARI_PITS");
     println!("cargo:rerun-if-env-changed=AWARI_SEEDS");
 
-    let board = match env::var("AWARI_PITS") {
+    let pits = match env::var("AWARI_PITS") {
         Ok(v) => v.parse::<usize>().unwrap(),
         Err(_) => 6,
     };
-        
-    let fboard = 2 * board;
+
+    let fpits = 2 * pits;
 
     let seeds = match env::var("AWARI_SEEDS") {
         Ok(v) => v.parse::<usize>().unwrap(),
@@ -35,11 +35,12 @@ fn main() {
 
     let path = Path::new(&env::var("OUT_DIR").unwrap()).join("size.rs");
     let mut file = File::create(&path).unwrap();
-    
-    writeln!(&mut file, "pub const PITS: usize = {};", board).unwrap();
-    writeln!(&mut file, "pub const FPITS: usize = {};", fboard).unwrap();
-    writeln!(&mut file, "pub const START_SEEDS: usize = {};", seeds).unwrap();
-    writeln!(&mut file, "pub const SEEDS: usize = {};", fboard * seeds).unwrap();
+
+    writeln!(&mut file, "pub const PITS: usize = {};", pits).unwrap();
+    writeln!(&mut file, "pub const FPITS: usize = {};", fpits).unwrap();
+    writeln!(&mut file, "pub const START_SEEDS: usize = {};",
+             seeds / fpits).unwrap();
+    writeln!(&mut file, "pub const SEEDS: usize = {};", seeds).unwrap();
     writeln!(&mut file, "pub const NBOARDS: usize = {};",
-             binom(fboard, fboard * (1 + seeds))).unwrap();
+             binom(fpits, fpits + seeds)).unwrap();
 }
