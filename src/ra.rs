@@ -1,6 +1,7 @@
 use std::cmp::max;
 use std::option::Option;
 use std::default::Default;
+use std::mem::transmute;
 
 use SEEDS;
 use awari::Awari;
@@ -72,6 +73,23 @@ impl State {
             _ => Option::None,
         }
     }
+
+    #[inline]
+    pub fn serialize(&self) -> [u8; 2] {
+        match *self {
+            State::Stable(v) => [unsafe { transmute(v) }, 1],
+            State::Unstable(v, n) => [unsafe { transmute(v) }, n << 1],
+        }
+    }
+
+    #[inline]
+    pub fn deserialize(buf: [u8; 2]) -> Self {
+        if buf[1] & 1 == 1 {
+            State::Stable(unsafe { transmute(buf[0]) })
+        } else {
+            State::Unstable(unsafe { transmute(buf[0]) }, buf[1] >> 1)
+        }
+    }
 }
 
 impl Default for State {
@@ -103,7 +121,7 @@ pub fn analyze<B: Backend<State>>(max_iter: usize) -> Storage<State, B> {
     *table.index_mut(0) = State::Stable(0);
     
     for n in 1..max_iter+1 {
-        println!("\n%%%%% seed num {} %%%%%", n);
+        info!("\n%%%%% seed num {} %%%%%", n);
         //table.pre_row_hook(n);
 
         // initialization

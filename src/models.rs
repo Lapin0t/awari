@@ -2,7 +2,6 @@ use std::boxed::{Box,HEAP};
 use std::fs::File;
 use std::io::{Seek,SeekFrom,Read,Write};
 use std::cell::RefCell;
-use std::mem;
 
 use tempfile::tempfile;
 
@@ -49,14 +48,6 @@ pub struct NaiveDisk(RefCell<File>);
 impl Default for NaiveDisk {
     fn default() -> Self {
         NaiveDisk(RefCell::new(tempfile().expect("couldn't create temporary file")))
-        /*NaiveDisk(RefCell::new(
-            OpenOptions::new()
-              .read(true)
-              .write(true)
-              .create(true)
-              .truncate(true)
-              .open("foobar.db").unwrap()
-            ))*/
     }
 }
 
@@ -69,15 +60,8 @@ impl Backend<State> for NaiveDisk {
 
         let mut buf = [0; 2];
         f.read(&mut buf).unwrap();
-
-        // poor man's serialization
-        let val: i8 = unsafe { mem::transmute(buf[0]) };
-
-        if buf[1] & 1 == 1 {
-            return (State::Stable(val), i);
-        } else {
-            return (State::Unstable(val, buf[1] >> 1), i);
-        }
+        
+        return (State::deserialize(buf), i);
     }
 
     #[inline]
@@ -89,12 +73,6 @@ impl Backend<State> for NaiveDisk {
     fn write_back(&mut self, s: &Self::Handle) {
         let mut f = self.0.borrow_mut();
         f.seek(SeekFrom::Start(2 * s.1 as u64)).unwrap();
-
-        match s.0 {
-            State::Stable(v) =>
-                f.write(&[unsafe { mem::transmute(v) }, 1]).unwrap(),
-            State::Unstable(v, n) =>
-                f.write(&[unsafe { mem::transmute(v) }, n << 1]).unwrap(),
-        };
+        f.write(&s.0.serialize()).unwrap();
     }
 }
