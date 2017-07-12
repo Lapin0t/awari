@@ -145,9 +145,9 @@ Pseudo-code:
 
    def analysis():
        table[0] = 0
-       for n in range(1, M+1):
+       for n in range(1, M+1):   # itération
            init_row(table, n)
-           for i in range(n+1):
+           for i in range(n+1):  # étape
                sat = n - i
                for u in iter_states(n):
                    match table[u] with:
@@ -304,5 +304,78 @@ Correction
 Théorème de correction: pour toute configuration u, table[u] = score(u).
 
 On peut prouver la correction de la construction de la table par récurrence sur
-n. L'initialisation est triviale. Soit n >= 1, on suppose que la table est bien
-construite pour i dans [0, n) et on analyse l'itération n.
+n. L'initialisation est triviale.
+
+
+Lemme
+^^^^^
+
+On note #u le nombre de graines de la configuration u.
+
+Soit u_0. Si score(u_0) = #u_0 - x alors il existe une suite u_1..k telle que:
+
+- k >= 1
+- u_{i+1} \in successors(u_i)       pour 0 <= i < k
+- #u_i = #u_0                       pour 0 <= i < k
+- #u_k < #u_0
+- score(u_i) = (-1)^i * (#u_i - x)  pour 0 <= i <= k
+
+Par la suite on ne s'intéressera qu'aux telles suites de longueur minimale et
+on notera @u_0 (=k) leur longueur.
+
+On peut se convaincre facilement de ce lemme en observant qu'on peut expliciter
+une telle suite en prenant une *variation principale* (optimale) jusqu'au
+prochain coup rapportant des points. En effet, dans la variation principale, on
+a score(u_i) = #u_i - #u_{i+1} - score(u_{i+1}). De plus pour toute variation,
+le nombre de graine reste le même jusqu'à ce qu'il décroisse. D'où le résultat
+en remplaçant les score(u_0) par #u_0 - x.
+
+
+Itération n
+^^^^^^^^^^^
+Soit n >= 1, on suppose que la table est bien construite pour  [0, n) et on
+analyse l'itération n.
+
+Pour i dans [-1,n], après l'étape i, abs(score(u)) >= n - i implique table[u] =
+Stable(score(u)). On en déduit qu'après l'étape n toutes les configurations
+sont stables.
+
+---
+
+Demonstration par récurrence sur i.
+
+Initialisation: si #u = n alors score(u) \in [-n, n], la propriété est donc
+vraie pour i=-1 (avant le début de la boucle).
+
+Hérédité: On suppose la propriété vraie pour i-1 et on montre qu'au cours de
+l'itération i, toutes les configurations u telles que abs(score(u)) = n - i
+sont stabilisées.
+
+On procède par récurrence sur @u.
+
+Initialisation:
+
+- Soit u telle que @u = 1 et score(u) = n-i. D'après le lemme il existe u_1
+  telle que score(u_1) = #u_1-i et #u_1 < #u. Par hypothèse de récurrence sur
+  n, u_1 est déjà stable, donc son score a été propagé à u dans la procédure
+  d'initialisation. Soit u est déjà stable auquel cas c'est fini, soit u =
+  Instable(n-i, _) et alors comme ``sat`` = n - i, u va être stabilisé à son
+  score.
+
+- Soit u telle que @u = 1 et score(u) = i-n. Soit v un successeur de u, par
+  définition, score(v) >= n-i. Si #v = n alors par le paragraphe précédent, v
+  est stable et a donc été propagé à u. Si #v < n, v est également stable.
+  Ainsi tout les successeurs de u sont stable, donc u est stable.
+
+Hérédité: soit k \in [1,..] on suppose que pour tout u telle que @u <= k et
+abs(score(u)) = n-i, u est stable.
+
+- Soit u telle que @u = k+1 et score(u) = n-i. D'après le lemme il existe u_1
+  telle que @u_1 = k et score(u_1) = i-n. Par hypothèse de récurrence, u_1 est
+  stable, elle a donc propagé son score à u qui a été stabilisé par saturation.
+- Soit u telle que @u = k+1 et score(u) = i-n. Soit v un successeur de u, par
+  définition, score(v) >= n-i. Si #v = n alors d'après le paragraphe précédent
+  v est stable et de même si #v < n. Ainsi u est stable car tous ses
+  successeurs le sont.
+
+cqfd.
