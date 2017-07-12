@@ -104,6 +104,7 @@ fn propagate<B: Backend<State>>(table: &mut Storage<State, B>, u: Awari,
     let mut stack = vec![(u, up)];
     while let Some((u, a)) = stack.pop() {
         if let Some(b) = table.index_mut(u.encode()).update(a, sat_lvl) {
+            debug_assert!(-sat_lvl <= b && b <= sat_lvl);
             // if update changed to final value, propagate further
             for v in u.predecessors() {
                 stack.push((v, b));
@@ -144,6 +145,7 @@ pub fn analyze<B: Backend<State>>(max_iter: usize) -> Storage<State, B> {
                 // yup, temporary lifetimes have struck again..
                 if let Some(x) = { let ref mut tmp = table.index_mut(u.encode());
                                    tmp.try_stabilize(sat_lvl) } {
+                    debug_assert!(-sat_lvl <= x && x <= sat_lvl);
                     for v in u.predecessors() {
                         propagate(&mut table, v, x, sat_lvl);
                     }
