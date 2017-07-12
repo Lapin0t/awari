@@ -340,42 +340,42 @@ Pour i dans [-1,n], après l'étape i, abs(score(u)) >= n - i implique table[u] 
 Stable(score(u)). On en déduit qu'après l'étape n toutes les configurations
 sont stables.
 
----
+Démonstration par récurrence sur i.
 
-Demonstration par récurrence sur i.
+- Initialisation: si #u = n alors score(u) \in [-n, n], la propriété est donc
+  vraie pour i=-1 (avant le début de la boucle).
 
-Initialisation: si #u = n alors score(u) \in [-n, n], la propriété est donc
-vraie pour i=-1 (avant le début de la boucle).
+- Hérédité: On suppose la propriété vraie pour i-1 et on montre qu'au cours de
+  l'itération i, toutes les configurations u telles que abs(score(u)) = n - i
+  sont stabilisées.
 
-Hérédité: On suppose la propriété vraie pour i-1 et on montre qu'au cours de
-l'itération i, toutes les configurations u telles que abs(score(u)) = n - i
-sont stabilisées.
+  On procède par récurrence sur @u.
 
-On procède par récurrence sur @u.
+  - Initialisation:
 
-Initialisation:
+    - Soit u telle que @u = 1 et score(u) = n-i. D'après le lemme il existe u_1
+      telle que score(u_1) = #u_1-i et #u_1 < #u. Par hypothèse de récurrence
+      sur n, u_1 est déjà stable, donc son score a été propagé à u dans la
+      procédure d'initialisation. Soit u est déjà stable auquel cas c'est fini,
+      soit u = Instable(n-i, _) et alors comme ``sat`` = n - i, u va être
+      stabilisé à son score.
 
-- Soit u telle que @u = 1 et score(u) = n-i. D'après le lemme il existe u_1
-  telle que score(u_1) = #u_1-i et #u_1 < #u. Par hypothèse de récurrence sur
-  n, u_1 est déjà stable, donc son score a été propagé à u dans la procédure
-  d'initialisation. Soit u est déjà stable auquel cas c'est fini, soit u =
-  Instable(n-i, _) et alors comme ``sat`` = n - i, u va être stabilisé à son
-  score.
+    - Soit u telle que @u = 1 et score(u) = i-n. Soit v un successeur de u, par
+      définition, score(v) >= n-i. Si #v = n alors par le paragraphe précédent,
+      v est stable et a donc été propagé à u. Si #v < n, v est également
+      stable.  Ainsi tout les successeurs de u sont stable, donc u est stable.
 
-- Soit u telle que @u = 1 et score(u) = i-n. Soit v un successeur de u, par
-  définition, score(v) >= n-i. Si #v = n alors par le paragraphe précédent, v
-  est stable et a donc été propagé à u. Si #v < n, v est également stable.
-  Ainsi tout les successeurs de u sont stable, donc u est stable.
+  - Hérédité: soit k \in [1,..] on suppose que pour tout u telle que @u <= k et
+    abs(score(u)) = n-i, u est stable.
 
-Hérédité: soit k \in [1,..] on suppose que pour tout u telle que @u <= k et
-abs(score(u)) = n-i, u est stable.
+    - Soit u telle que @u = k+1 et score(u) = n-i. D'après le lemme il existe
+      u_1 telle que @u_1 = k et score(u_1) = i-n. Par hypothèse de récurrence,
+      u_1 est stable, elle a donc propagé son score à u qui a été stabilisé par
+      saturation.
 
-- Soit u telle que @u = k+1 et score(u) = n-i. D'après le lemme il existe u_1
-  telle que @u_1 = k et score(u_1) = i-n. Par hypothèse de récurrence, u_1 est
-  stable, elle a donc propagé son score à u qui a été stabilisé par saturation.
-- Soit u telle que @u = k+1 et score(u) = i-n. Soit v un successeur de u, par
-  définition, score(v) >= n-i. Si #v = n alors d'après le paragraphe précédent
-  v est stable et de même si #v < n. Ainsi u est stable car tous ses
-  successeurs le sont.
+    - Soit u telle que @u = k+1 et score(u) = i-n. Soit v un successeur de u,
+      par définition, score(v) >= n-i. Si #v = n alors d'après le paragraphe
+      précédent v est stable et de même si #v < n. Ainsi u est stable car tous
+      ses successeurs le sont.
 
 cqfd.
