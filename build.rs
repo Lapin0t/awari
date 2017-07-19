@@ -43,4 +43,16 @@ fn main() {
     writeln!(&mut file, "pub const SEEDS: usize = {};", seeds).unwrap();
     writeln!(&mut file, "pub const NBOARDS: usize = {};",
              binom(fpits, fpits + seeds)).unwrap();
+
+    write!(&mut file, "pub const BINOM_TBL: [usize; {}] = [",
+             fpits * (fpits + seeds + 1)).unwrap();
+    for k in 0..fpits {
+        write!(&mut file, "{},", 0).unwrap();
+    }
+    for n in 1..fpits+seeds+1 {
+        for k in 0..fpits {
+            write!(&mut file, "{},", binom(k+1, n)).unwrap();
+        }
+    }
+    writeln!(&mut file, "];").unwrap();
 }

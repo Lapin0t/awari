@@ -1,39 +1,4 @@
-use {FPITS,SEEDS};
-
-
-const TBL_LEN : usize = FPITS*(FPITS + SEEDS + 2);
-
-
-fn binom_slow(k: usize, n: usize) -> usize {
-    if n < k {
-        return 0;
-    }
-    let mut p = 1;
-    for i in 0..k {
-        p *= n - i;
-        p /= i + 1;
-    }
-    return p;
-}
-
-
-fn mk_tbl() -> [usize; TBL_LEN] {
-    let mut tbl = [0; TBL_LEN];
-    for k in 0..FPITS {
-        tbl[k] = 0;
-    }
-    for n in 1..FPITS+SEEDS+1 {
-        for k in 0..FPITS {
-            tbl[n*FPITS + k] = binom_slow(k+1, n);
-        }
-    }
-    return tbl;
-}
-
-
-lazy_static! {
-    static ref BINOM_TBL : [usize; TBL_LEN] = mk_tbl();
-}
+use {FPITS,SEEDS,BINOM_TBL};
 
 
 /// Compute a binomial coefficient (using in-memory precomputed table).
