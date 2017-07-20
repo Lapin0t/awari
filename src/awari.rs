@@ -72,23 +72,43 @@ impl Awari {
     /// Iterate on every board configuration with a given number of seeds.
     pub fn iter_config(n: usize) -> Iter {
         let x = 1 << FPITS - 1;
+        let code = binom(FPITS, FPITS + n - 1) - binom(FPITS, PITS + n - 1) - 1;
         return Iter { curr: x - 1,
                       last: (x - 1) << n,
-                      big: x << n }
+                      mask: x << n,
+                      code: code }
     }
 
     /// Return a compact encoding of an awari board as an integer.
     #[inline]
     pub fn encode(&self) -> usize {
         let (mut g, mut c) = (0, 0);
+        let mut xs = [0; FPITS];
         for i in 0..FPITS {
-            c += 1 + self[i] as usize;
-            g += binom(i + 1, c - 1);
+            c += self[i] as usize;
+            xs[i] = c;
+            g += binom(i + 1, c + i);
+        }
+
+        let mut brk = 0;
+        let mut last = xs[PITS-1];
+        for i in PITS..FPITS {
+            if last >= xs[i] || xs[i] <= i - PITS {
+                xs[i] += 1;
+                brk = i;
+            }
+            last = xs[i];
+        }
+
+        debug_assert!(brk > 0);
+
+        for i in brk..FPITS {
+            g -= binom(i + 1, xs[i] + PITS - 1);
         }
         return g;
     }
 
-    /// Return the `Awari` board represented by the given compact code.
+    /*/// Return the `Awari` board represented by the given compact code.
     #[inline]
     pub fn decode(g: usize) -> Self {
         let mut g = g;
@@ -102,7 +122,7 @@ impl Awari {
             s[i] = s[i] - s[i-1] - 1;
         }
         return s;
-    }
+    }*/
 
     /// Compute every legal predecessor that has the same score (only 0-valued
     /// back-moves are allowed taken into account).
@@ -240,20 +260,21 @@ impl Awari {
 pub struct Iter {
     curr: usize,
     last: usize,
-    big: usize,
+    mask: usize,
+    code: usize
 }
 
 
 impl Iterator for Iter {
-    type Item = Awari;
+    type Item = (usize, Awari);
 
     #[inline]
-    fn next(&mut self) -> Option<Awari> {
+    fn next(&mut self) -> Option<(usize, Awari)> {
         if self.curr > self.last {
             return None;
         } else {
             // extract the board
-            let mut x = self.curr | self.big;
+            let mut x = self.curr | self.mask;
             let mut s: Awari = Default::default();
 
             for i in 0..FPITS {
@@ -267,7 +288,12 @@ impl Iterator for Iter {
             let t = c | (c - 1);
             self.curr = (t+1) | (((!t & (t+1)) - 1) >> (c.trailing_zeros() + 1));
 
-            return Some(s);
+            if (PITS..FPITS).all(|i| s[i] > 0) {
+                return self.next();
+            } else {
+                self.code += 1;
+                return Some((self.code, s));
+            }
         }
     }
 }
@@ -301,10 +327,10 @@ mod tests {
     }
 
 
-    #[quickcheck]
+    /*#[quickcheck]
     fn coding_bijective(u: Awari) -> bool {
         u == Awari::decode(u.encode())
-    }
+    }*/
 
     #[quickcheck]
     fn all_succ_in_pred(u: Awari) -> bool {
@@ -331,12 +357,12 @@ mod tests {
         b.iter(|| { for _ in 0..100 { black_box(board.encode()); } });
     }
 
-    #[bench]
+    /*#[bench]
     fn bench_decode_100(b: &mut Bencher) {
         let mut rng = thread_rng();
         let n = rng.gen_range(0, NBOARDS);
         b.iter(|| { for _ in 0..100 { black_box(Awari::decode(n)); } });
-    }
+    }*/
 
     #[bench]
     fn bench_successors_100(b: &mut Bencher) {

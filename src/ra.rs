@@ -127,7 +127,7 @@ pub fn analyze<B: Backend<State>>(max_iter: usize) -> Storage<State, B> {
         info!("\n%%%%% seed num {} %%%%%", n);
 
         // initialization
-        for u in Awari::iter_config(n) {
+        for (c, u) in Awari::iter_config(n) {
             let (mut score, mut nsucc) = (-(n as i8), 0);
             for (v, k) in u.successors() {
                 if k > 0 {
@@ -135,7 +135,7 @@ pub fn analyze<B: Backend<State>>(max_iter: usize) -> Storage<State, B> {
                 }
                 nsucc += 1;
             }
-            *table.index_mut(u.encode()) = State::Unstable(score, nsucc);
+            *table.index_mut(c) = State::Unstable(score, nsucc);
         }
 
         // convergence
@@ -145,9 +145,9 @@ pub fn analyze<B: Backend<State>>(max_iter: usize) -> Storage<State, B> {
             if sat_lvl == 0 {
                 println!("n: {}, l: {}", n, l);
             }
-            for u in Awari::iter_config(n) {
+            for (c, u) in Awari::iter_config(n) {
                 // yup, temporary lifetimes have struck again..
-                if let Some(x) = { let ref mut tmp = table.index_mut(u.encode());
+                if let Some(x) = { let ref mut tmp = table.index_mut(c);
                                    tmp.try_stabilize(sat_lvl) } {
                     debug_assert!(-sat_lvl <= x && x <= sat_lvl);
                     for v in u.predecessors() {
@@ -157,8 +157,8 @@ pub fn analyze<B: Backend<State>>(max_iter: usize) -> Storage<State, B> {
             }
         }
         if n & 1 == 0 {
-            for u in Awari::iter_config(n) {
-                let mut spot = table.index_mut(u.encode());
+            for (c, u) in Awari::iter_config(n) {
+                let mut spot = table.index_mut(c);
                 if let State::Unstable(0, _) = *spot {
                     *spot = State::Stable(0);
                 }
