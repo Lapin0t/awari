@@ -42,7 +42,7 @@ fn main() {
              seeds / fpits).unwrap();
     writeln!(&mut file, "pub const SEEDS: usize = {};", seeds).unwrap();
     writeln!(&mut file, "pub const NBOARDS: usize = {};",
-             binom(fpits, fpits + seeds)).unwrap();
+             binom(fpits, fpits + seeds) - binom(fpits, pits + seeds)).unwrap();
 
     write!(&mut file, "pub const BINOM_TBL: [usize; {}] = [",
              fpits * (fpits + seeds + 1)).unwrap();
