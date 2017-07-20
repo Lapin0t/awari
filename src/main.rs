@@ -1,5 +1,8 @@
 use std::env;
 use std::option::Option;
+use std::fs::File;
+use std::io::{BufWriter,Write};
+use std::mem::transmute;
 
 extern crate awari;
 
@@ -18,11 +21,22 @@ fn main() {
     };
 
     let table = analyze::<models::NaiveRAM>(upto);
-    for n in 0..10 {
-        println!("configurations with {} seeds", n);
-        for u in Awari::iter_config(n) {
-            let id = u.encode();
-            println!("{:10}: {}", id, table.index(id).value());
+
+    if !env::args().any(|x| x == "--quiet") {
+        let mut out = BufWriter::new(File::create("out").unwrap());
+        for n in 0..upto+1 {
+            //println!("configurations with {} seeds", n);
+            for (c, u) in Awari::iter_config(n) {
+                write!(&mut out, "{:10}: {}\n", c, table.index(c).value()).unwrap();
+            }
+        }
+        let mut out = BufWriter::new(File::create("access").unwrap());
+        let tmp = table.stats();
+        for &i in tmp.iter() {
+            unsafe {
+                out.write(&transmute::<usize,[u8;8]>(i)).unwrap();
+            }
         }
     }
+    println!("memory accesses: {}", table.stats().len());
 }
