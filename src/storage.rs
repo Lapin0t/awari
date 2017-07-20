@@ -13,7 +13,7 @@ pub trait Backend<T>: Default {
 }
 
 
-pub struct Storage<T, B> {
+pub struct Storage<T, B: Backend<T>> {
     backend: B,
     _marker: PhantomData<T>,
 }
@@ -28,6 +28,13 @@ impl<T, B: Backend<T>> Storage<T, B> {
     pub fn index_mut(&mut self, i: usize) -> RefMut<T, B> {
         RefMut { handle: self.backend.get_handle(i),
                  owner: &mut self.backend }
+    }
+}
+
+impl<T, B: Backend<T>> Deref for Storage<T, B> {
+    type Target = B;
+    fn deref(&self) -> &B {
+        &self.backend
     }
 }
 
