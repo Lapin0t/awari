@@ -1,7 +1,8 @@
 use std::boxed::{Box,HEAP};
 use std::fs::File;
 use std::io::{Seek,SeekFrom,Read,Write};
-use std::cell::RefCell;
+use std::cell::{RefCell,Ref};
+use std::vec::Vec;
 
 use tempfile::tempfile;
 
@@ -25,7 +26,9 @@ impl Backend<State> for NaiveRAM {
     type Handle = usize;
 
     #[inline]
-    fn get_handle(&self, i: usize) -> usize { i }
+    fn get_handle(&self, i: usize) -> usize {
+        i
+    }
 
     #[inline]
     fn deref_handle(&self, i: &usize) -> &State {
