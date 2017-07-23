@@ -1,7 +1,7 @@
 #!/bin/bash
 
 function do_things {
-    tmp=tmp-${1}-${2}
+    tmp=tmp/tmp-${1}-${2}
     CARGO_TARGET_DIR=$tmp AWARI_SEEDS=$2 AWARI_PITS=$1 cargo build -j 1 --bin stats --release &> /dev/null
     CARGO_TARGET_DIR=$tmp AWARI_SEEDS=$2 AWARI_PITS=$1 cargo build -j 1 --bin awari --release &> /dev/null
 
