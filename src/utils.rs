@@ -1,4 +1,4 @@
-use {FPITS,SEEDS,BINOM_TBL};
+use {PITS,FPITS,SEEDS,BINOM_TBL};
 
 
 /// Compute a binomial coefficient (using in-memory precomputed table).
@@ -24,6 +24,10 @@ pub fn binom_maxinv(k : usize , x: usize ) -> (usize , usize ) {
         }
     }
     return (a, binom(k, a));
+}
+
+pub fn n_boards(n: usize) -> usize {
+    binom(FPITS-1, FPITS+n-1) - binom(FPITS-1, PITS+n-1)
 }
 
 
