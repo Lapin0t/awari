@@ -237,6 +237,10 @@ Soit de manière simplifiée: (K + n + 1)*(A + B) = (K + n + 1)*f(n).
 
 Au final on obtient le nombre d'accès mémoire: (K + n + 2)*f(n) + X
 
+edit: (MP(n) + (n+1)/2 + 1)*f(n) + (1 + MNZS(n))*f(n)
+MP(n): mean-predecessor
+MNZS(n): mean-non-zero-gain-successor
+
 Quelques chiffres
 ^^^^^^^^^^^^^^^^^
 
