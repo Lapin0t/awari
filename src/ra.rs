@@ -2,10 +2,14 @@ use std::cmp::max;
 use std::option::Option;
 use std::default::Default;
 use std::mem::transmute;
+use std::convert::Into;
+use std::path::PathBuf;
+use std::ops::IndexMut;
 
 use SEEDS;
 use awari::Awari;
-use storage::{Backend,Storage};
+
+pub use storage::*;
 
 
 /// State storing the current computed best score for a given game
@@ -97,74 +101,81 @@ impl Default for State {
 }
 
 
-/// Update the given state with the final score of one of its successors.
-/// Propagate it recursively whenever it flips the state to a final score.
-fn propagate<B: Backend<State>>(table: &mut Storage<State, B>, u: Awari,
-                                up: i8, sat_lvl: i8) {
-    let mut stack = vec![(u, up)];
-    while let Some((u, a)) = stack.pop() {
-        if let Some(b) = table.index_mut(u.encode()).update(a, sat_lvl) {
-            debug_assert!(-sat_lvl <= b && b <= sat_lvl);
-            // if update changed to final value, propagate further
-            for v in u.predecessors() {
-                stack.push((v, b));
+pub trait Table: IndexMut<usize,Output=State> {
+    fn new<T: Into<PathBuf>>(T) -> Self;
+    fn finish_hook(&mut self);
+    fn pre_hook(&mut self, usize);
+    fn post_hook(&mut self, usize);
+
+    /// Update the given state with the final score of one of its successors.
+    /// Propagate it recursively whenever it flips the state to a final score.
+    fn propagate(&mut self, u: Awari, up: i8, sat_lvl: i8) {
+        let mut stack = vec![(u, up)];
+        while let Some((u, a)) = stack.pop() {
+            if let Some(b) = self[u.encode()].update(a, sat_lvl) {
+                debug_assert!(-sat_lvl <= b && b <= sat_lvl);
+                // if update changed to final value, propagate further
+                for v in u.predecessors() {
+                    stack.push((v, b));
+                }
             }
         }
     }
-}
 
-
-/// Construct the optimal score table for up to ``max_iter`` pieces on the
-/// board.
-pub fn analyze<B: Backend<State>>(max_iter: usize) -> Storage<State, B> {
-    let mut table: Storage<State, B> = Default::default();
-    *table.index_mut(0) = State::Stable(0);
-    
-    for n in 1..max_iter+1 {
-        if n == SEEDS - 1 {
-            continue;
+    /// Construct the optimal score table for up to ``max_iter`` pieces on the
+    /// board.
+    fn build(&mut self, max_iter: usize) {
+        for n in 1..max_iter+1 {
+            if n == SEEDS - 1 {
+                continue;
+            }
+            self.iteration(n);
         }
-        info!("\n%%%%% seed num {} %%%%%", n);
+        info!("The END!");
+        self.finish_hook();
+    }
 
-        // initialization
+    fn iteration(&mut self, n: usize) {
+        info!("start of iteration {}", n);
+        self.pre_hook(n);
+
+        info!("initialization");
         for (c, u) in Awari::iter_config(n) {
             let (mut score, mut nsucc) = (-(n as i8), 0);
             for (v, k) in u.successors() {
                 if k > 0 {
-                    score = max(score, k as i8 - table.index(v.encode()).value());
+                    score = max(score, k as i8 - self[v.encode()].value());
                 }
                 nsucc += 1;
             }
-            *table.index_mut(c) = State::Unstable(score, nsucc);
+            self[c] = State::Unstable(score, nsucc);
         }
 
         // convergence
+        info!("convergence");
         for l in 0..(n+1)/2 {
-            info!("iteration {}", 2*l);
+            info!("step {}", 2*l);
             let sat_lvl = (n - 2*l) as i8;
-            if sat_lvl == 0 {
-                println!("n: {}, l: {}", n, l);
-            }
             for (c, u) in Awari::iter_config(n) {
                 // yup, temporary lifetimes have struck again..
-                if let Some(x) = { let ref mut tmp = table.index_mut(c);
+                if let Some(x) = { let ref mut tmp = self[c];
                                    tmp.try_stabilize(sat_lvl) } {
                     debug_assert!(-sat_lvl <= x && x <= sat_lvl);
                     for v in u.predecessors() {
-                        propagate(&mut table, v, x, sat_lvl);
+                        self.propagate(v, x, sat_lvl);
                     }
                 }
             }
         }
         if n & 1 == 0 {
-            for (c, u) in Awari::iter_config(n) {
-                let mut spot = table.index_mut(c);
+            info!("step {}", n);
+            for (c, _) in Awari::iter_config(n) {
+                let ref mut spot = self[c];
+                // State::Unstable(_, _) is equivalent here
                 if let State::Unstable(0, _) = *spot {
                     *spot = State::Stable(0);
                 }
             }
         }
     }
-
-    return table;
 }
