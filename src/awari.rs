@@ -4,7 +4,7 @@ use std::fmt;
 use std::cmp::min;
 
 use {START_SEEDS,PITS,FPITS};
-use utils::{binom,binom_maxinv,divmod};
+use utils::{binom,divmod};
 
 
 /// Representation of an awari board configuration.
