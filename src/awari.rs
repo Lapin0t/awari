@@ -90,6 +90,11 @@ impl Awari {
             g += binom(i + 1, c + i);
         }
 
+        // configs with SEEDS-1 seeds are not accessible
+        if xs[FPITS-1] == SEEDS {
+            g -= utils::n_boards(SEEDS - 1);
+        }
+
         let mut brk = 0;
         let mut last = xs[PITS-1];
         for i in PITS..FPITS {
@@ -107,22 +112,6 @@ impl Awari {
         }
         return g;
     }
-
-    /*/// Return the `Awari` board represented by the given compact code.
-    #[inline]
-    pub fn decode(g: usize) -> Self {
-        let mut g = g;
-        let mut s: Awari = Default::default();
-        for i in (0..FPITS).rev() {
-            let (x, b) = binom_maxinv(i + 1, g);
-            s[i] = x as u8;
-            g -= b;
-        }
-        for i in (1..FPITS).rev() {
-            s[i] = s[i] - s[i-1] - 1;
-        }
-        return s;
-    }*/
 
     /// Compute every legal predecessor that has the same score (only 0-valued
     /// back-moves are allowed taken into account).
