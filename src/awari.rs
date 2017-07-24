@@ -3,8 +3,8 @@ use std::iter::Iterator;
 use std::fmt;
 use std::cmp::min;
 
-use {START_SEEDS,PITS,FPITS};
-use utils::{binom,divmod};
+use {SEEDS,START_SEEDS,PITS,FPITS};
+use utils::{binom,divmod,n_boards};
 
 
 /// Representation of an awari board configuration.
@@ -92,7 +92,7 @@ impl Awari {
 
         // configs with SEEDS-1 seeds are not accessible
         if xs[FPITS-1] == SEEDS {
-            g -= utils::n_boards(SEEDS - 1);
+            g -= n_boards(SEEDS - 1);
         }
 
         let mut brk = 0;
