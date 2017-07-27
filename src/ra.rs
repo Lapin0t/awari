@@ -2,9 +2,8 @@ use std::cmp::max;
 use std::option::Option;
 use std::default::Default;
 use std::mem::transmute;
-use std::convert::Into;
-use std::path::PathBuf;
-use std::ops::IndexMut;
+use std::convert::AsRef;
+use std::path::Path;
 
 use SEEDS;
 use awari::Awari;
@@ -36,7 +35,12 @@ impl State {
     /// board, else return `None`.
     #[inline]
     pub fn update(&mut self, up: i8, sat_lvl: i8) -> Option<i8> {
-        debug_assert!(sat_lvl >= max(self.value(), -up));
+        debug_assert!(
+            match *self {
+                State::Unstable(v, _) => sat_lvl >= max(v, -up),
+                _ => true
+            }
+        );
 
         match *self {
             State::Stable(s) => {
@@ -79,15 +83,21 @@ impl State {
     }
 
     #[inline]
-    pub fn serialize(&self) -> [u8; 2] {
+    pub fn serialize(&self, buf: &mut [u8]) {
         match *self {
-            State::Stable(v) => [unsafe { transmute(v) }, 1],
-            State::Unstable(v, n) => [unsafe { transmute(v) }, n << 1],
+            State::Stable(v) => {
+                buf[0] = unsafe { transmute(v) };
+                buf[1] = 1;
+            }
+            State::Unstable(v, n) => {
+                buf[0] = unsafe { transmute(v) };
+                buf[1] = n << 1;
+            }
         }
     }
 
     #[inline]
-    pub fn deserialize(buf: [u8; 2]) -> Self {
+    pub fn deserialize(buf: &[u8]) -> Self {
         if buf[1] & 1 == 1 {
             State::Stable(unsafe { transmute(buf[0]) })
         } else {
@@ -101,18 +111,25 @@ impl Default for State {
 }
 
 
-pub trait Table: IndexMut<usize,Output=State> {
-    fn new<T: Into<PathBuf>>(T) -> Self;
+pub trait Table {
+    fn new<T: AsRef<Path>>(T) -> Self;
+
     fn finish_hook(&mut self);
+
     fn pre_hook(&mut self, usize);
+
     fn post_hook(&mut self, usize);
+
+    fn insert(&mut self, usize, State);
+
+    fn index_mut(&mut self, usize) -> &mut State;
 
     /// Update the given state with the final score of one of its successors.
     /// Propagate it recursively whenever it flips the state to a final score.
     fn propagate(&mut self, u: Awari, up: i8, sat_lvl: i8) {
         let mut stack = vec![(u, up)];
         while let Some((u, a)) = stack.pop() {
-            if let Some(b) = self[u.encode()].update(a, sat_lvl) {
+            if let Some(b) = self.index_mut(u.encode()).update(a, sat_lvl) {
                 debug_assert!(-sat_lvl <= b && b <= sat_lvl);
                 // if update changed to final value, propagate further
                 for v in u.predecessors() {
@@ -122,15 +139,19 @@ pub trait Table: IndexMut<usize,Output=State> {
         }
     }
 
-    /// Construct the optimal score table for up to ``max_iter`` pieces on the
-    /// board.
-    fn build(&mut self, max_iter: usize) {
-        for n in 1..max_iter+1 {
-            if n == SEEDS - 1 {
-                continue;
-            }
+    /// Construct the optimal score table! Yay!
+    fn build(&mut self) {
+        // first iteration
+        self.pre_hook(0);
+        self.insert(0, State::Stable(0));
+        self.post_hook(0);
+
+        // don't compute the second to last iteration
+        for n in 1..SEEDS-1 {
             self.iteration(n);
         }
+        self.iteration(SEEDS);
+
         info!("The END!");
         self.finish_hook();
     }
@@ -144,21 +165,20 @@ pub trait Table: IndexMut<usize,Output=State> {
             let (mut score, mut nsucc) = (-(n as i8), 0);
             for (v, k) in u.successors() {
                 if k > 0 {
-                    score = max(score, k as i8 - self[v.encode()].value());
+                    score = max(score, k as i8 - self.index_mut(v.encode()).value());
                 }
                 nsucc += 1;
             }
-            self[c] = State::Unstable(score, nsucc);
+            self.insert(c, State::Unstable(score, nsucc));
         }
 
-        // convergence
         info!("convergence");
         for l in 0..(n+1)/2 {
             info!("step {}", 2*l);
             let sat_lvl = (n - 2*l) as i8;
             for (c, u) in Awari::iter_config(n) {
                 // yup, temporary lifetimes have struck again..
-                if let Some(x) = { let ref mut tmp = self[c];
+                if let Some(x) = { let ref mut tmp = self.index_mut(c);
                                    tmp.try_stabilize(sat_lvl) } {
                     debug_assert!(-sat_lvl <= x && x <= sat_lvl);
                     for v in u.predecessors() {
@@ -170,9 +190,8 @@ pub trait Table: IndexMut<usize,Output=State> {
         if n & 1 == 0 {
             info!("step {}", n);
             for (c, _) in Awari::iter_config(n) {
-                let ref mut spot = self[c];
-                // State::Unstable(_, _) is equivalent here
-                if let State::Unstable(0, _) = *spot {
+                let spot = self.index_mut(c);
+                if let State::Unstable(_, _) = *spot {
                     *spot = State::Stable(0);
                 }
             }
