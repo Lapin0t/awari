@@ -4,7 +4,7 @@ use std::fmt;
 use std::cmp::min;
 
 use {SEEDS,START_SEEDS,PITS,FPITS};
-use utils::{binom,divmod,n_boards};
+use utils::{binom,divmod,n_boards,enc_min};
 
 
 /// Representation of an awari board configuration.
@@ -72,11 +72,10 @@ impl Awari {
     /// Iterate on every board configuration with a given number of seeds.
     pub fn iter_config(n: usize) -> Iter {
         let x = 1 << FPITS - 1;
-        let code = binom(FPITS, FPITS + n - 1) - binom(FPITS, PITS + n - 1) - 1;
         return Iter { curr: x - 1,
                       last: (x - 1) << n,
                       mask: x << n,
-                      code: code }
+                      code: enc_min(n) - 1 }
     }
 
     /// Return a compact encoding of an awari board as an integer.
@@ -121,7 +120,7 @@ impl Awari {
         
         let mut v = Vec::new();
 
-        if (PITS..FPITS).all(|k| cpy[k] == 0) {
+        if cpy[PITS..FPITS].iter().all(|&x| x == 0) {
             return v;
         }
 
@@ -143,7 +142,9 @@ impl Awari {
                         for n in 0..min(cmin[r], last) {
                             let mut s = cpy;
                             s.unsow(i, r + 1, n);
-                            v.push(s);
+                            if cpy[PITS..FPITS].iter().any(|&x| x == 0) {
+                                v.push(s);
+                            }
                         }
                     }
                 }
@@ -151,6 +152,43 @@ impl Awari {
         }
         return v;
     }
+
+    /*pub fn predecessors_nz(&self, n: u8) -> Vec<Self> {
+        debug_assert!(n > 0);
+        
+        let mut cpy = *self;
+        cpy.rotate();
+        
+        let mut v = Vec::new();
+
+        let mut i = PITS;
+        while i < FPITS && self[i] > 0 { i += 1; }
+        let a = i;
+        while i < FPITS && self[i] == 0 { i += 1; }
+        let b = i;
+
+        i = PITS - 1;
+        while i >= 0
+        let mut m = SEEDS;
+        while i >= 0 && self[i] > 0 {
+            m = min(m, self[i]);
+            i -= 1;
+        }
+
+        for c in (n+2)/3..1+min(n/2, (b - a) as u8) {
+            let mut x = (1 << (n - 2*c)) - 1;
+            let y = x << (3*c - n);
+            while x <= y {
+                let mut cpy = self;
+                for i in 0..c {
+                    cpy[a + i] = 2 + ((x >> i) & 1);
+                }
+                let t = x | (x - 1);
+                x = (t+1) | (((!t & (t+1)) - 1) >> (x.trailing_zeros() + 1));
+            }
+        }
+        return v;
+    }*/
 
     /// Compute every legal successors configuration of the current
     /// board together with the reward of the move.
@@ -167,6 +205,7 @@ impl Awari {
         return v;
     }
 
+    /// Rotate the board (simulating a player change).
     #[inline]
     fn rotate(&mut self) {
         for i in 0..PITS {
@@ -174,6 +213,7 @@ impl Awari {
         }
     }
 
+    /// Test if `i` is a valid move.
     fn valid_sow(&self, i: usize) -> bool {
         let n = self[i];
         if i >= PITS || n == 0 {
@@ -194,7 +234,9 @@ impl Awari {
             return false;
         }
     }
-    
+
+    /// Do the "sowing" part of the move, starting from pit `i`. Panics if
+    /// this is not a valid move.
     fn sow(&mut self, i: usize) -> (usize, u8) {
         debug_assert!(i < PITS, "pit index out of bounds");
         debug_assert!(self[i] > 0, "no seeds in pit");
@@ -210,6 +252,8 @@ impl Awari {
         return ((i+r) % FPITS, q as u8);
     }
 
+    /// Undo the sowing that was done starting from pit `i`, that contained
+    /// `(FPITS-1)*n + r` seeds. Panics if this is not a valid predecessor.
     #[inline]
     fn unsow(&mut self, i: usize, r: usize, n: u8) {
         for k in 0..r {
@@ -223,6 +267,7 @@ impl Awari {
         self[i] += ((FPITS - 1) as u8)*n + r as u8;
     }
 
+    /// Finish the move that ended in pit `i` by collecting the needed seeds .
     fn collect(&mut self, i: usize) -> u8 {
         let mut j = i;
         let mut n = 0;
@@ -234,13 +279,14 @@ impl Awari {
         return n;
     }
 
+    /// Play the pit `i` and return the number of captured seeds. Panics if
+    /// this is not a valid move (`self[i] == 0`).
     fn play(&mut self, i: usize) -> u8 {
         let (j, _) = self.sow(i);
         let k = self.collect(j);
         self.rotate();
         return k;
     }
-    
 }
 
 
@@ -277,10 +323,11 @@ impl Iterator for Iter {
             let t = c | (c - 1);
             self.curr = (t+1) | (((!t & (t+1)) - 1) >> (c.trailing_zeros() + 1));
 
-            if (PITS..FPITS).all(|i| s[i] > 0) {
+            if s[PITS..FPITS].iter().all(|&a| a > 0) {
                 return self.next();
             } else {
                 self.code += 1;
+                debug_assert!(self.code == s.encode());
                 return Some((self.code, s));
             }
         }
