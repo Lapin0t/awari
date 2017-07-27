@@ -1,5 +1,4 @@
 use std::env;
-use std::option::Option;
 
 #[macro_use] extern crate log;
 extern crate env_logger;
@@ -12,13 +11,8 @@ use awari::ra::{Table,NaiveRAM};
 fn main() {
     env_logger::init().unwrap();
 
-    info!("PITS={} SEEDS={} NBOARDS={}", PITS, SEEDS, NBOARDS);
+    info!("[pits:{},seeds:{},nboards:{}]", PITS, SEEDS, NBOARDS);
 
-    let upto = match env::args().nth(1) {
-        Option::Some(n) => n.parse::<usize>().unwrap(),
-        Option::None => SEEDS,
-    };
-
-    let mut table = NaiveRAM::new(".");
-    table.build(upto);
+    let mut table = NaiveRAM::new(env::args().nth(1).unwrap());
+    table.build();
 }
