@@ -48,7 +48,7 @@ fn main() {
 
     write!(&mut file, "pub const BINOM_TBL: [usize; {}] = [",
              fpits * (fpits + seeds + 1)).unwrap();
-    for k in 0..fpits {
+    for _ in 0..fpits {
         write!(&mut file, "{},", 0).unwrap();
     }
     for n in 1..fpits+seeds+1 {
