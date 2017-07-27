@@ -30,6 +30,14 @@ pub fn n_boards(n: usize) -> usize {
     binom(FPITS-1, FPITS+n-1) - binom(FPITS-1, PITS+n-1)
 }
 
+pub fn enc_min(n: usize) -> usize {
+    let mut a = binom(FPITS, FPITS + n - 1) - binom(FPITS, PITS + n - 1);
+    if n == SEEDS {
+        a -= binom(FPITS - 1, FPITS + SEEDS - 2) - binom(FPITS-1, PITS + SEEDS - 2);
+    }
+    return a;
+}
+
 
 /// Compute the euclidean division and remainder where the remainder is
 /// in range [1,n].
