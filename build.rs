@@ -1,3 +1,5 @@
+//extern crate libc;
+
 use std::env;
 use std::fs::File;
 use std::path::Path;
@@ -33,18 +35,24 @@ fn main() {
         Err(_) => 4,
     };
 
-    let path = Path::new(&env::var("OUT_DIR").unwrap()).join("size.rs");
+    let n_boards = (
+        binom(fpits, fpits + seeds) - binom(fpits, pits + seeds)
+        - binom(fpits-1, fpits+seeds-2) + binom(fpits-1, pits+seeds-2)
+    );
+
+    let path = Path::new(&env::var("OUT_DIR").unwrap()).join("params.rs");
     let mut file = File::create(&path).unwrap();
 
-    writeln!(&mut file, "pub const PITS: usize = {};", pits).unwrap();
-    writeln!(&mut file, "pub const FPITS: usize = {};", fpits).unwrap();
-    writeln!(&mut file, "pub const START_SEEDS: usize = {};",
-             seeds / fpits).unwrap();
-    writeln!(&mut file, "pub const SEEDS: usize = {};", seeds).unwrap();
-    writeln!(&mut file, "pub const NBOARDS: usize = {};",
-             binom(fpits, fpits + seeds) - binom(fpits, pits + seeds)
-             - binom(fpits-1, fpits+seeds-2) + binom(fpits-1, pits+seeds-2)
-            ).unwrap();
+    writeln!(&mut file, "pub const PITS: usize = {};", pits)
+        .unwrap();
+    writeln!(&mut file, "pub const FPITS: usize = {};", fpits)
+        .unwrap();
+    writeln!(&mut file, "pub const START_SEEDS: usize = {};", seeds / fpits)
+        .unwrap();
+    writeln!(&mut file, "pub const SEEDS: usize = {};", seeds)
+        .unwrap();
+    writeln!(&mut file, "pub const NBOARDS: usize = {};", n_boards)
+        .unwrap();
 
     write!(&mut file, "pub const BINOM_TBL: [usize; {}] = [",
              fpits * (fpits + seeds + 1)).unwrap();
@@ -57,4 +65,7 @@ fn main() {
         }
     }
     writeln!(&mut file, "];").unwrap();
+
+//    writeln!(&mut file, "pub const PAGE_SIZE: usize = {};",
+//             libc::sysconf(libc::_SC_PAGESIZE) as usize)
 }
