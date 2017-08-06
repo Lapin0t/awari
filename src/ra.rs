@@ -1,32 +1,26 @@
 use std::cmp::max;
 use std::option::Option;
-use std::default::Default;
-use std::mem::transmute;
-use std::convert::AsRef;
-use std::path::Path;
+use std::ops::IndexMut;
+
+use core::nonzero::NonZero;
 
 use SEEDS;
 use awari::Awari;
 
-pub use storage::*;
+pub use storage::{NaiveRAM,MMaped};
 
 
-/// State storing the current computed best score for a given game
-/// configuration.
-#[derive(Copy,Clone,Debug)]
-pub enum State {
-    Stable(i8),
-    Unstable(i8, u8),
+#[derive(Eq,PartialEq)]
+pub struct State {
+    val: i8,
+    nsuc: Option<NonZero<u8>>,
 }
 
-
 impl State {
-    /// Get the current value of the board. This shouldn't be needed anymore.
-    #[inline]
-    pub fn value(&self) -> i8 {
-        match *self {
-            State::Stable(s) => s,
-            State::Unstable(s, _) => s,
+    pub fn new(v: i8, n: u8) -> Self {
+        State {
+            val: v,
+            nsuc: unsafe { Option::Some(NonZero::new_unchecked(n + 1)) },
         }
     }
 
@@ -35,37 +29,32 @@ impl State {
     /// board, else return `None`.
     #[inline]
     pub fn update(&mut self, up: i8, sat_lvl: i8) -> Option<i8> {
-        debug_assert!(
-            match *self {
-                State::Unstable(v, _) => sat_lvl >= max(v, -up),
-                _ => true
-            }
-        );
+        debug_assert!(self.nsuc == Option::None || sat_lvl >= max(self.val, -up));
 
-        match *self {
-            State::Stable(s) => {
-                // nothing to do, just test for consistency
-                debug_assert!(s >= up);
-                return Option::None;
+        match self.nsuc {
+            Option::None => {
+                debug_assert!(self.val >= up);
+                Option::None
             },
-            State::Unstable(s, 1) => {
-                let s = max(s, -up);
-                *self = State::Stable(s);
-                return Option::Some(s);
-            },
-            State::Unstable(s, n) if (s == sat_lvl || -up == sat_lvl) => {
-                debug_assert!(n > 0);
-                *self = State::Stable(sat_lvl);
-                return Option::Some(sat_lvl);
-            },
-            State::Unstable(ref mut s, ref mut n) => {
-                debug_assert!(*n > 0);
-                *n -= 1;
-                if *s < -up {
-                    *s = -up;
+            Option::Some(n) => {
+                debug_assert!(n.get() >= 2);
+                if n.get() == 2 {
+                    self.nsuc = Option::None;
+                    Option::Some(max(self.val, -up))
+                } else if self.val == sat_lvl || -up == sat_lvl {
+                    self.nsuc = Option::None;
+                    self.val = sat_lvl;
+                    Option::Some(sat_lvl)
+                } else {
+                    self.nsuc = unsafe {
+                        Option::Some(NonZero::new_unchecked(n.get()-1))
+                    };
+                    if self.val < -up {
+                        self.val = -up;
+                    }
+                    Option::None
                 }
-                return Option::None;
-            },
+            }
         }
     }
 
@@ -73,128 +62,106 @@ impl State {
     /// return the final value, else do nothing.
     #[inline]
     pub fn try_stabilize(&mut self, sat_lvl: i8) -> Option<i8> {
-        match *self {
-            State::Unstable(s, n) if s == sat_lvl || n == 0 => {
-                *self = State::Stable(s);
-                Option::Some(s)
-            },
-            _ => Option::None,
-        }
-    }
-
-    #[inline]
-    pub fn serialize(&self, buf: &mut [u8]) {
-        match *self {
-            State::Stable(v) => {
-                buf[0] = unsafe { transmute(v) };
-                buf[1] = 1;
+        if sat_lvl == 0 {
+            // little hack: if sat_lvl == 0 this is the last branch
+            if self.nsuc != Option::None {
+                self.val = 0;
+                self.nsuc = Option::None;
             }
-            State::Unstable(v, n) => {
-                buf[0] = unsafe { transmute(v) };
-                buf[1] = n << 1;
-            }
-        }
-    }
-
-    #[inline]
-    pub fn deserialize(buf: &[u8]) -> Self {
-        if buf[1] & 1 == 1 {
-            State::Stable(unsafe { transmute(buf[0]) })
+            Option::None
         } else {
-            State::Unstable(unsafe { transmute(buf[0]) }, buf[1] >> 1)
+            match self.nsuc {
+                Option::Some(n) if self.val == sat_lvl || n.get() == 1 => {
+                    self.nsuc = Option::None;
+                    Option::Some(self.val)
+                },
+                _ => Option::None,
+            }
         }
     }
 }
 
-impl Default for State {
-    fn default() -> Self { State::Unstable(-(SEEDS as i8), 0) }
-}
 
-
-pub trait Table {
-    fn new<T: AsRef<Path>>(T) -> Self;
-
-    fn finish_hook(&mut self);
-
-    fn pre_hook(&mut self, usize);
-
-    fn post_hook(&mut self, usize);
-
+pub trait Table: IndexMut<usize, Output=State> {
     fn insert(&mut self, usize, State);
+    fn pre_hook(&mut self, usize);
+    fn post_hook(&mut self, usize);
+    fn finish_hook(&mut self);
+}
 
-    fn index_mut(&mut self, usize) -> &mut State;
 
-    /// Update the given state with the final score of one of its successors.
-    /// Propagate it recursively whenever it flips the state to a final score.
-    fn propagate(&mut self, u: Awari, up: i8, sat_lvl: i8) {
-        let mut stack = vec![(u, up)];
-        while let Some((u, a)) = stack.pop() {
-            if let Some(b) = self.index_mut(u.encode()).update(a, sat_lvl) {
-                debug_assert!(-sat_lvl <= b && b <= sat_lvl);
-                // if update changed to final value, propagate further
-                for v in u.predecessors() {
-                    stack.push((v, b));
-                }
+/// Update the given state with the final score of one of its successors.
+/// Propagate it recursively whenever it flips the:w
+// state to a final score.
+fn propagate<T: Table>(table: &mut T, u: Awari, up: i8, sat_lvl: i8) {
+    let mut stack = vec![(u, up)];
+    while let Some((u, a)) = stack.pop() {
+        if let Some(b) = table[u.encode()].update(a, sat_lvl) {
+            debug_assert!(-sat_lvl <= b && b <= sat_lvl);
+            // if update changed to final value, propagate further
+            for v in u.predecessors() {
+                stack.push((v, b));
             }
         }
     }
+}
 
-    /// Construct the optimal score table! Yay!
-    fn build(&mut self) {
-        // first iteration
-        self.pre_hook(0);
-        self.insert(0, State::Stable(0));
-        self.post_hook(0);
+fn iteration<T: Table>(table: &mut T, n: usize) {
+    info!("start of iteration {}", n);
+    table.pre_hook(n);
 
-        // don't compute the second to last iteration
-        for n in 1..SEEDS-1 {
-            self.iteration(n);
+    info!("initialization");
+    for (c, u) in Awari::iter_config(n) {
+        let (mut score, mut nsucc) = (-(n as i8), 0);
+        for (v, k) in u.successors() {
+            if k > 0 {
+                score = max(score, k as i8 - table[v.encode()].val);
+            }
+            nsucc += 1;
         }
-        self.iteration(SEEDS);
-
-        info!("The END!");
-        self.finish_hook();
+        table.insert(c, State::new(score, nsucc));
     }
 
-    fn iteration(&mut self, n: usize) {
-        info!("start of iteration {}", n);
-        self.pre_hook(n);
-
-        info!("initialization");
+    info!("convergence");
+    for l in 0..(n+1)/2 {
+        info!("step {}", 2*l);
+        let sat_lvl = (n - 2*l) as i8;
         for (c, u) in Awari::iter_config(n) {
-            let (mut score, mut nsucc) = (-(n as i8), 0);
-            for (v, k) in u.successors() {
-                if k > 0 {
-                    score = max(score, k as i8 - self.index_mut(v.encode()).value());
-                }
-                nsucc += 1;
-            }
-            self.insert(c, State::Unstable(score, nsucc));
-        }
-
-        info!("convergence");
-        for l in 0..(n+1)/2 {
-            info!("step {}", 2*l);
-            let sat_lvl = (n - 2*l) as i8;
-            for (c, u) in Awari::iter_config(n) {
-                // yup, temporary lifetimes have struck again..
-                if let Some(x) = { let ref mut tmp = self.index_mut(c);
-                                   tmp.try_stabilize(sat_lvl) } {
-                    debug_assert!(-sat_lvl <= x && x <= sat_lvl);
-                    for v in u.predecessors() {
-                        self.propagate(v, x, sat_lvl);
-                    }
-                }
-            }
-        }
-        if n & 1 == 0 {
-            info!("step {}", n);
-            for (c, _) in Awari::iter_config(n) {
-                let spot = self.index_mut(c);
-                if let State::Unstable(_, _) = *spot {
-                    *spot = State::Stable(0);
+            // yup, temporary lifetimes have struck again..
+            if let Some(x) = { let ref mut tmp = table[c];
+                               tmp.try_stabilize(sat_lvl) } {
+                debug_assert!(-sat_lvl <= x && x <= sat_lvl);
+                for v in u.predecessors() {
+                    propagate(table, v, x, sat_lvl);
                 }
             }
         }
     }
+    if n & 1 == 0 {
+        info!("step {}", n);
+        for (c, _) in Awari::iter_config(n) {
+            let ref mut tmp = table[c];
+            if tmp.nsuc != Option::None {
+                tmp.val = 0;
+                tmp.nsuc = Option::None;
+            }
+        }
+    }
+}
+
+
+/// Construct the optimal score table! Yay!
+pub fn build<T: Table>(table: &mut T) {
+    // first iteration
+    table.pre_hook(0);
+    table.insert(0, State { val: 0, nsuc: Option::None });
+    table.post_hook(0);
+
+    // don't compute the second to last iteration
+    for n in 1..SEEDS-1 {
+        iteration(table, n);
+    }
+    iteration(table, SEEDS);
+
+    table.finish_hook();
 }

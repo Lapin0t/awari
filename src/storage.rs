@@ -1,11 +1,13 @@
 use std::boxed::{Box,HEAP};
-use std::convert::AsRef;
 use std::path::Path;
-use std::collections::HashMap;
-use std::mem::uninitialized;
-use std::fs::File;
-use std::io::{Read,Write,Seek,SeekFrom};
-use tempfile::tempfile_in;
+use std::convert::AsRef;
+use std::mem::{size_of,uninitialized};
+use std::fs::OpenOptions;
+use std::os::unix::io::AsRawFd;
+use std::io;
+use std::ops::{Index,IndexMut};
+use std::ptr;
+use libc;
 
 use NBOARDS;
 use ra::{State,Table};
@@ -16,20 +18,23 @@ pub struct NaiveRAM {
     stats: Vec<usize>,
 }
 
-impl Table for NaiveRAM {
-    fn new<T: AsRef<Path>>(_: T) -> Self {
-        NaiveRAM { data: HEAP <- [Default::default(); NBOARDS],
-                   stats: Vec::new() }
-    }
 
+impl NaiveRAM {
+    pub fn new() -> Self {
+        NaiveRAM {
+            data: HEAP <- unsafe { uninitialized() },
+            stats: Vec::new()
+        }
+    }
+}
+
+
+impl Table for NaiveRAM {
     fn insert(&mut self, i: usize, v: State) {
         self.stats.push(i);
-        self.data[i] = v;
-    }
-
-    fn index_mut(&mut self, i: usize) -> &mut State {
-        self.stats.push(i);
-        &mut self.data[i]
+        unsafe {
+            ptr::write(&mut self[i], v);
+        }
     }
 
     fn pre_hook(&mut self, _: usize) {}
@@ -40,80 +45,82 @@ impl Table for NaiveRAM {
     }
 }
 
-
-const BLK_SHIFT: usize = 16;
-const BLK_LEN: usize = (1 << BLK_SHIFT);
-const MAX_BLKS: usize = 1 << (20 - BLK_SHIFT); // max 1GB
-const DQ: usize = 4;
-
-pub struct Hybrid {
-    fd: File,
-    cache: HashMap<usize,[State; BLK_LEN]>,
-    dqi: usize,
-    dq: [usize; DQ],
+impl Index<usize> for NaiveRAM {
+    type Output = State;
+    fn index(&self, i: usize) -> &State {
+        &self.data[i]
+    }
 }
 
-impl Hybrid {
-    fn ensure(&mut self, blk: usize, ) {
-        match self.cache.get(&blk) {
-            Option::Some(_) => {},
-            Option::None => {
-                let mut buf: [u8; BLK_LEN * 2] = unsafe { uninitialized() };
+impl IndexMut<usize> for NaiveRAM {
+    fn index_mut(&mut self, i: usize) -> &mut State {
+        self.stats.push(i);
+        &mut self.data[i]
+    }
+}
 
-                if self.cache.len() >= MAX_BLKS {
-                    let line = self.cache.remove(&self.dqi).unwrap();
-                    self.fd.seek(SeekFrom::Start((self.dqi << BLK_SHIFT + 1) as u64)).unwrap();
-                    for (i, s) in line.iter().enumerate() {
-                        s.serialize(&mut buf[2*i..2*i+2]);
-                    }
-                    self.fd.write(&buf).unwrap();
-                }
 
-                debug_assert!(self.cache.len() < MAX_BLKS);
+pub struct MMaped {
+    ptr: *mut State,
+    len: usize,
+}
 
-                let mut line: [State; BLK_LEN] = unsafe { uninitialized() };
+impl MMaped {
+    pub fn new<T: AsRef<Path>>(wd: T) -> io::Result<Self> {
+        let size = size_of::<State>() * NBOARDS;
+        let fd = OpenOptions::new()
+                   .read(true)
+                   .write(true)
+                   .create(true)
+                   .open(wd.as_ref().join("table_mmap"))?;
+        fd.set_len(size as u64)?;
 
-                self.fd.seek(SeekFrom::Start((blk << BLK_SHIFT + 1) as u64)).unwrap();
-                info!("blk: {}", blk);
-                self.fd.read_exact(&mut buf).unwrap();
+        let ptr = unsafe {
+            libc::mmap(ptr::null_mut(), size as libc::size_t,
+                       libc::PROT_READ | libc::PROT_WRITE,
+                       libc::MAP_SHARED, fd.as_raw_fd(), 0)
+        };
 
-                for (i, s) in line.iter_mut().enumerate() {
-                    *s = State::deserialize(&buf[2*i..2*i+2]);
-                }
-                self.cache.insert(blk, line);
-            }
+        if ptr == libc::MAP_FAILED {
+            return Err(io::Error::last_os_error());
+        } else {
+            return Ok(MMaped { ptr: ptr as *mut State, len: size });
         }
-        self.dq[self.dqi] = blk;
-        self.dqi = (self.dqi + 1) & (DQ - 1);
     }
 }
 
-
-impl Table for Hybrid {
-    fn new<T: AsRef<Path>>(wd: T) -> Self {
-        let fd = tempfile_in(wd).unwrap();
-        fd.set_len(1 + 2 * NBOARDS as u64).unwrap();
-        Hybrid { fd: fd,
-                 cache: HashMap::with_capacity(MAX_BLKS),
-                 dqi: 0,
-                 dq: [0; DQ] }
-    }
-
-    fn insert(&mut self, n: usize, s: State) {
-        let blk = n >> BLK_SHIFT;
-        self.ensure(blk);
-        self.cache.get_mut(&blk).unwrap()[n & (BLK_LEN - 1)] = s;
-    }
-
-    fn index_mut(&mut self, n: usize) -> &mut State {
-        let blk = n >> BLK_SHIFT;
-        self.ensure(blk);
-        let line = self.cache.get_mut(&blk).unwrap();
-        return &mut line[n & (BLK_LEN - 1)];
+impl Table for MMaped {
+    fn insert(&mut self, i: usize, s: State) {
+        unsafe {
+            ptr::write(self.ptr.offset(i as isize), s);
+        }
     }
 
     fn pre_hook(&mut self, _: usize) {}
     fn post_hook(&mut self, _: usize) {}
     fn finish_hook(&mut self) {}
+}
 
+impl Index<usize> for MMaped {
+    type Output = State;
+
+    fn index(&self, i: usize) -> &State {
+        debug_assert!(i < self.len);
+        unsafe { &*self.ptr.offset(i as isize) }
+    }
+}
+
+impl IndexMut<usize> for MMaped {
+    fn index_mut(&mut self, i: usize) -> &mut State {
+        debug_assert!(i < self.len);
+        unsafe { &mut *self.ptr.offset(i as isize) }
+    }
+}
+
+impl Drop for MMaped {
+    fn drop(&mut self) {
+        unsafe {
+            libc::munmap(self.ptr as *mut libc::c_void, self.len);
+        }
+    }
 }
