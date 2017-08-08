@@ -6,7 +6,7 @@
 #[cfg(test)] extern crate quickcheck;
 #[cfg(test)] extern crate test;
 #[cfg(test)] extern crate rand;
-#[macro_use] extern crate log;
+#[macro_use] extern crate slog;
 extern crate libc;
 extern crate core;
 extern crate tempfile;

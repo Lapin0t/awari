@@ -1,13 +1,15 @@
 use std::boxed::{Box,HEAP};
 use std::path::Path;
 use std::convert::AsRef;
-use std::mem::{size_of,uninitialized};
+use std::mem;
 use std::fs::OpenOptions;
 use std::os::unix::io::AsRawFd;
 use std::io;
 use std::ops::{Index,IndexMut};
 use std::ptr;
+
 use libc;
+use slog::Logger;
 
 use NBOARDS;
 use ra::{State,Table};
@@ -15,15 +17,15 @@ use ra::{State,Table};
 
 pub struct NaiveRAM {
     data: Box<[State; NBOARDS]>,
-    stats: Vec<usize>,
+    logger: Logger,
 }
 
 
 impl NaiveRAM {
-    pub fn new() -> Self {
+    pub fn new(log: Logger) -> Self {
         NaiveRAM {
-            data: HEAP <- unsafe { uninitialized() },
-            stats: Vec::new()
+            data: HEAP <- unsafe { mem::uninitialized() },
+            logger: log,
         }
     }
 }
@@ -31,7 +33,7 @@ impl NaiveRAM {
 
 impl Table for NaiveRAM {
     fn insert(&mut self, i: usize, v: State) {
-        self.stats.push(i);
+        info!(self.logger, "mem access"; "idx" => i);
         unsafe {
             ptr::write(&mut self[i], v);
         }
@@ -39,22 +41,20 @@ impl Table for NaiveRAM {
 
     fn pre_hook(&mut self, _: usize) {}
     fn post_hook(&mut self, _: usize) {}
-
-    fn finish_hook(&mut self) {
-        info!("number of memory accesses: {}", self.stats.len())
-    }
+    fn finish_hook(&mut self) {}
 }
 
 impl Index<usize> for NaiveRAM {
     type Output = State;
     fn index(&self, i: usize) -> &State {
+        info!(self.logger, "mem access"; "idx" => i);
         &self.data[i]
     }
 }
 
 impl IndexMut<usize> for NaiveRAM {
     fn index_mut(&mut self, i: usize) -> &mut State {
-        self.stats.push(i);
+        info!(self.logger, "mem access"; "idx" => i);
         &mut self.data[i]
     }
 }
@@ -63,11 +63,12 @@ impl IndexMut<usize> for NaiveRAM {
 pub struct MMaped {
     ptr: *mut State,
     len: usize,
+    logger: Logger,
 }
 
 impl MMaped {
-    pub fn new<T: AsRef<Path>>(wd: T) -> io::Result<Self> {
-        let size = size_of::<State>() * NBOARDS;
+    pub fn new<T: AsRef<Path>>(wd: T, log: Logger) -> io::Result<Self> {
+        let size = mem::size_of::<State>() * NBOARDS;
         let fd = OpenOptions::new()
                    .read(true)
                    .write(true)
@@ -84,7 +85,9 @@ impl MMaped {
         if ptr == libc::MAP_FAILED {
             return Err(io::Error::last_os_error());
         } else {
-            return Ok(MMaped { ptr: ptr as *mut State, len: size });
+            return Ok(MMaped { ptr: ptr as *mut State,
+                               len: size,
+                               logger: log });
         }
     }
 }
